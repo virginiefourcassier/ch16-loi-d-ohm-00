@@ -257,4 +257,98 @@
   }
 
   function drawResistor(x,y,w,h,R){
-    roundRect(x,y,w,h,1
+    roundRect(x,y,w,h,14,"rgba(255,209,102,.10)","rgba(255,209,102,.45)");
+    ctx.fillStyle = "rgba(233,238,252,.92)";
+    ctx.font = "800 14px system-ui,Segoe UI,Arial";
+    ctx.fillText("Résistance", x+10, y+22);
+    ctx.fillStyle = "rgba(233,238,252,.82)";
+    ctx.font = "800 16px system-ui,Segoe UI,Arial";
+    ctx.fillText(`${R} Ω`, x+w-80, y+28);
+
+    // zigzag
+    const zx1 = x+20, zx2 = x+w-20, zy = y+h-16;
+    ctx.strokeStyle = "rgba(233,238,252,.9)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(zx1, zy);
+    const n = 10;
+    for (let i=1;i<=n;i++){
+      const t = i/n;
+      const xx = zx1 + t*(zx2-zx1);
+      const yy = zy + (i%2===0 ? -8 : 8);
+      ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+  }
+
+  function drawInlineAmmeter(x,y,w,h){
+    roundRect(x,y,w,h,14,"rgba(103,232,166,.10)","rgba(103,232,166,.45)");
+    ctx.fillStyle = "rgba(233,238,252,.92)";
+    ctx.font = "900 18px system-ui,Segoe UI,Arial";
+    ctx.fillText("A", x+w/2-6, y+h/2+7);
+  }
+
+  function drawMultimeter(x,y,w,h,title,reading,unit){
+    // corps
+    roundRect(x,y,w,h,18,"rgba(255,255,255,.06)","rgba(255,255,255,.12)");
+
+    // en-tête
+    ctx.fillStyle = "rgba(233,238,252,.92)";
+    ctx.font = "800 14px system-ui,Segoe UI,Arial";
+    ctx.fillText(title, x+14, y+22);
+
+    // écran
+    const sx = x+18, sy = y+34, sw = w-36, sh = 54;
+    roundRect(sx,sy,sw,sh,12,"rgba(0,0,0,.35)","rgba(255,255,255,.10)");
+
+    // digits (style 7-seg simplifié)
+    ctx.fillStyle = "rgba(103,232,166,.92)";
+    ctx.font = "900 34px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    const txt = `${reading}`;
+    ctx.fillText(txt, sx+16, sy+41);
+
+    ctx.fillStyle = "rgba(233,238,252,.70)";
+    ctx.font = "800 16px system-ui,Segoe UI,Arial";
+    ctx.fillText(unit, sx+sw-46, sy+41);
+
+    // bornes
+    const bY = y + h - 28;
+    drawJack(x+78, bY, "#ff4d6d", "VΩ");
+    drawJack(x+w-78, bY, "#9aa4b2", "COM");
+  }
+
+  function drawJack(x,y,color,label){
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x,y,9,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath();
+    ctx.arc(x+2,y+2,9,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(233,238,252,.75)";
+    ctx.font = "700 12px system-ui,Segoe UI,Arial";
+    ctx.fillText(label, x-14, y+24);
+  }
+
+  // ====== Events ======
+  uRange.addEventListener("input", () => {
+    state.U = clamp(parseFloat(uRange.value), 0, 10);
+    syncUI();
+    draw();
+  });
+
+  resetBtn.addEventListener("click", () => {
+    state.U = 0.0;
+    state.R = 100;
+    uRange.value = "0";
+    setActiveButton(state.R);
+    logCard.style.display = "none";
+    state.pinned = null;
+    syncUI();
+    draw();
+  });
+
+  snapBtn.addEventListener("click", () => {
+    con
