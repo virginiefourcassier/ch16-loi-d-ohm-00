@@ -53,11 +53,13 @@
   const imgAuA = new Image();
   imgAuA.src = "amperemetre_microA.png?v=1";
 
-  // ====== PLACEMENT DES OVERLAYS (corrigé) ======
+// ====== PLACEMENT DES OVERLAYS (ajustement fin) ======
 const OVER = {
-  // un peu plus grand, un peu plus bas, et vers le bord extérieur
-  volt: { x: 0.020, y: 0.125, w: 0.335, h: 0.800 },
-  amp:  { x: 0.655, y: 0.125, w: 0.335, h: 0.800 }
+  // Voltmètre : plus étroit, un peu plus à gauche et un peu plus bas
+  volt: { x: 0.010, y: 0.150, w: 0.300, h: 0.800 },
+
+  // Ampèremètre : un peu plus à droite et un peu plus bas
+  amp:  { x: 0.690, y: 0.155, w: 0.335, h: 0.800 }
 };
 
 // ====== HOTSPOTS (corrigé) ======
