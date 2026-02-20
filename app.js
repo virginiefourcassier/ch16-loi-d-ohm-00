@@ -1,555 +1,330 @@
 (() => {
   "use strict";
 
-  const $ = (id) => {
-    const el = document.getElementById(id);
-    if (!el) throw new Error(`Élément manquant : #${id}`);
-    return el;
-  };
+  const $ = (id) => document.getElementById(id);
 
-  // Canvas
   const canvas = $("c");
   const ctx = canvas.getContext("2d");
 
-  // Générateur / R
   const uRange = $("uRange");
-  const rRange = $("rRange");
   const uTxt = $("uTxt");
   const rTxt = $("rTxt");
-
-  // Voltmètre
-  const vDial = $("vDial");
-  const vRedJack = $("vRedJack");
-  const vBlackNode = $("vBlackNode");
-  const vRedNode = $("vRedNode");
-
-  // Ampèremètre
-  const aDial = $("aDial");
-  const aRedJack = $("aRedJack");
-  const aBlackNode = $("aBlackNode");
-  const aRedNode = $("aRedNode");
-
-  // UI
-  const statusBox = $("statusBox");
+  const resGrid = $("resGrid");
+  const iIdeal = $("iIdeal");
+  const status = $("status");
   const resetBtn = $("resetBtn");
-  const refBtn = $("refBtn");
-  const refCard = $("refCard");
-  const refTxt = $("refTxt");
+  const showHotBtn = $("showHotBtn");
 
-  // Image centrale optionnelle
-  const montageImg = new Image();
-  let montageOk = false;
-  montageImg.onload = () => { montageOk = true; draw(); };
-  montageImg.onerror = () => { montageOk = false; draw(); };
-  montageImg.src = "montage.jpg"; // optionnel
+  // ====== Données électriques ======
+  const RES_VALUES = [10, 33, 47, 68, 100, 220, 330, 470];
 
-  // ====== État ======
   const state = {
     U: parseFloat(uRange.value),
-    R: parseFloat(rRange.value),
-    // fusible mA de l'ampèremètre
-    aFuseBlown: false,
+    R: 100,
+
+    // états “sélecteurs”
+    vOn: false,                 // devient true quand on clique sur la zone V⎓ (gauche)
+    aRangeIndex: null,          // 0,1,2 quand on clique une zone A⎓ (droite)
+
+    // calibres A⎓ (3 positions demandées)
+    aRangesA: [0.002, 0.02, 0.2], // 2 mA, 20 mA, 200 mA (en ampères)
+
+    // aide debug visuel
+    showHotspots: false,
   };
 
-  // ====== Circuit (modèle simple) ======
-  // Série: Source U en série avec R.
-  // Noeuds:
-  // N0 : borne - source
-  // N1 : borne + source
-  // NR : borne R côté + (après la coupure série droite)
-  // NL : borne R côté - (avant retour N0)
-  // SER_L / SER_R : points de coupure pour insérer l'ampèremètre en série
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function I_phys(U,R){ return (R > 0) ? (U / R) : 0; } // A
+
+  // ====== Image de fond (ta PJ) ======
+  const bg = new Image();
+  let bgOk = false;
+  bg.onload = () => { bgOk = true; draw(); };
+  bg.onerror = () => { bgOk = false; draw(); };
+  bg.src = "fond.jpg"; // <-- tu mets ta PJ renommée "fond.jpg" à la racine
+
+  // ====== HOTSPOTS (zones cliquables) ======
+  // Coordonnées en fraction (0..1) de la taille du canvas.
+  // Ajustables si besoin.
   //
-  // Ici: N1 -> SER_L -> (ampèremètre si branché) -> SER_R -> NR -> R -> NL -> N0
-  //
-  // Si ampèremètre n'est pas inséré correctement: on considère circuit "ouvert" => I=0.
-  // Si ampèremètre est branché en parallèle (ex: entre N1 et N0) en mode courant : court-circuit => FUSE/OL.
+  // NOTE : si c'est décalé chez toi, tu ajustes x,y,w,h ci-dessous.
+  const HOT = {
+    // Voltmètre gauche : une zone cliquable sur "V continu"
+    v_dc: { x: 0.125, y: 0.345, w: 0.16, h: 0.19 },
 
-  function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+    // Ampèremètre droite : 3 zones (3 calibres DC)
+    // du plus grand au plus petit OU l’inverse : ici on met 200mA, 20mA, 2mA
+    a_200m: { x: 0.735, y: 0.350, w: 0.16, h: 0.11 }, // 200 mA
+    a_20m:  { x: 0.735, y: 0.465, w: 0.16, h: 0.11 }, // 20 mA
+    a_2m:   { x: 0.735, y: 0.580, w: 0.16, h: 0.11 }, // 2 mA
+  };
 
-  function idealCurrent(U, R){
-    if (R <= 0) return 0;
-    return U / R; // A
+  // Positions des “molettes” (pour dessiner un repère tourné)
+  // (à ajuster si besoin : centre x,y en fraction + rayon en px)
+  const KNOB = {
+    v: { cx: 0.165, cy: 0.530, r: 70 },
+    a: { cx: 0.835, cy: 0.530, r: 70 },
+  };
+
+  // Angles (en radians) du repère pour simuler la rotation
+  // (valeurs esthétiques, pas critiques)
+  const ANG = {
+    v_off: -2.2,
+    v_dc:  -1.2,
+    a_200m: -1.35,
+    a_20m:  -1.65,
+    a_2m:   -1.95,
+    a_off:  -2.2,
+  };
+
+  // Zones “écran LCD” où on superpose le texte
+  const LCD = {
+    v: { x: 0.085, y: 0.205, w: 0.255, h: 0.105 },
+    a: { x: 0.675, y: 0.205, w: 0.255, h: 0.105 },
+  };
+
+  function inRect(px,py, r){
+    return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
   }
 
-  // Potentiels idéaux des noeuds si circuit fermé (sans résistance interne)
-  function nodeVoltages(U){
-    // Choix: N0 = 0V, N1 = U
-    return {
-      N0: 0,
-      N1: U,
-      SER_L: U,   // avant insertion A
-      SER_R: U,   // après insertion A (idéal)
-      NR: U,      // borne R côté +
-      NL: 0,      // borne R côté -
-    };
+  function normPos(evt){
+    const rect = canvas.getBoundingClientRect();
+    const x = (evt.clientX - rect.left) / rect.width;
+    const y = (evt.clientY - rect.top) / rect.height;
+    return { x, y };
   }
 
-  function format7segNumber(valStr){
-    // valStr déjà prêt (ex: "3.40", "OL", "FUSE")
-    return valStr;
+  // ====== UI R ======
+  function setActiveR(R){
+    [...resGrid.querySelectorAll("button")].forEach(b => {
+      b.classList.toggle("active", Number(b.dataset.r) === R);
+    });
   }
 
-  function parseDial(dialVal){
-    // Voltmètre: OFF, V_0.2, V_2, V_20
-    // Ampèremètre: OFF, A_0.002, A_0.02, A_0.2, A_10
-    if (dialVal === "OFF") return { mode:"OFF" };
-    const [m, r] = dialVal.split("_"); // "V" / "A"
-    const range = parseFloat(r);
-    return { mode:m, range };
+  function buildResButtons(){
+    resGrid.innerHTML = "";
+    RES_VALUES.forEach(r => {
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = `${r} Ω`;
+      b.dataset.r = String(r);
+      b.addEventListener("click", () => {
+        state.R = r;
+        rTxt.textContent = String(r);
+        setActiveR(r);
+        syncNumbers();
+        draw();
+      });
+      resGrid.appendChild(b);
+    });
+    setActiveR(state.R);
   }
 
-  // ====== Vérification branchements ======
-  function isVoltmeterWiredCorrectly(dial, redJack){
-    // On accepte uniquement V⎓ et redJack=V (VΩmA)
-    if (dial.mode !== "V") return false;
-    if (redJack !== "V") return false;
-    return true;
+  // ====== Mesures / affichages ======
+  function format_mA(valA, decimals){
+    return (valA * 1000).toFixed(decimals);
   }
 
-  function isAmmeterJackCorrectForRange(dial, redJack){
-    if (dial.mode !== "A") return false;
-    if (dial.range === 10) return redJack === "10A";
-    // gammes mA
-    return redJack === "mA";
-  }
-
-  function isAmmeterInsertedInSeries(blackNode, redNode){
-    // Insertion correcte : entre SER_L et SER_R (dans un sens ou l’autre)
-    const a = blackNode, b = redNode;
-    return (a === "SER_L" && b === "SER_R") || (a === "SER_R" && b === "SER_L");
-  }
-
-  function isAmmeterParallelShort(blackNode, redNode){
-    // Court-circuit "grossier" si relié entre N1 et N0
-    const a = blackNode, b = redNode;
-    return (a === "N1" && b === "N0") || (a === "N0" && b === "N1");
-  }
-
-  function isAmmeterAcrossResistor(blackNode, redNode){
-    // Branché aux bornes de la résistance (NR <-> NL)
-    const a = blackNode, b = redNode;
-    return (a === "NR" && b === "NL") || (a === "NL" && b === "NR");
-  }
-
-  function computeCircuitClosed(){
-    // Circuit fermé si l'ampèremètre est correctement inséré en série
-    // OU si l'ampèremètre est OFF/voltage mode et on considère que la boucle est fermée "sans coupure".
-    //
-    // Mais dans notre modèle, la coupure existe et doit être pontée.
-    // Pour rendre réaliste : le circuit n'est fermé QUE si l'ampèremètre relie SER_L et SER_R.
-    //
-    const aD = parseDial(aDial.value);
-    const aInserted = isAmmeterInsertedInSeries(aBlackNode.value, aRedNode.value);
-    // Même si le sélecteur est OFF, les pointes peuvent physiquement relier : on ferme si insertion série.
-    return aInserted;
-  }
-
-  // ====== Mesures ======
   function readVoltmeter(){
-    const d = parseDial(vDial.value);
-    if (d.mode === "OFF") return { text:"", on:false, note:"Voltmètre sur OFF." };
+    // Uniquement actif après clic sur zone V⎓
+    if (!state.vOn) return { text: "", unit: "" };
 
-    // Mauvaise fonction (ex: l'élève met le voltmètre sur un mode qui n'existe pas ici)
-    if (d.mode !== "V") return { text:"OL", on:true, note:"Voltmètre non réglé sur V⎓." };
-
-    // Mauvais jack rouge
-    if (vRedJack.value !== "V") return { text:"OL", on:true, note:"Voltmètre : jack rouge incorrect (mettre VΩmA)." };
-
-    // Valeur mesurée = différence de potentiel entre noeuds sélectionnés
-    const closed = computeCircuitClosed();
-    const V = nodeVoltages(state.U);
-    // Si circuit ouvert, on garde N1=U et N0=0, NR=U (car côté source), NL=0 (retour) — c'est cohérent ici.
-    // (Dans un vrai montage, certaines tensions pourraient dépendre, mais on reste pédagogique.)
-    const Vb = V[vBlackNode.value];
-    const Vr = V[vRedNode.value];
-    const meas = (Vr - Vb);
-
-    const abs = Math.abs(meas);
-    if (abs > d.range + 1e-12) return { text:"OL", on:true, note:`Voltmètre hors calibre (${d.range} V).` };
-
-    // Affichage type DMM: selon gamme
-    let decimals = 2;
-    if (d.range === 0.2) decimals = 3; // 200 mV -> mV précision
-    if (d.range === 2) decimals = 3;
-    if (d.range === 20) decimals = 2;
-
-    const text = meas.toFixed(decimals);
-    return { text, on:true, note: closed ? "Voltmètre : OK." : "Circuit ouvert (ampèremètre non inséré) : mesures partielles possibles." };
+    // Ici, on suppose (comme physix) que le voltmètre est correctement branché aux bornes de R
+    const U = state.U;
+    // Affichage : 2 décimales
+    return { text: U.toFixed(2), unit: "V" };
   }
 
   function readAmmeter(){
-    const d = parseDial(aDial.value);
-    if (d.mode === "OFF") return { text:"", on:false, note:"Ampèremètre sur OFF." };
+    if (state.aRangeIndex === null) return { text:"", unit:"" };
 
-    if (d.mode !== "A") return { text:"OL", on:true, note:"Ampèremètre non réglé sur A⎓." };
+    const I = I_phys(state.U, state.R); // A
+    const rangeA = state.aRangesA[state.aRangeIndex]; // A
 
-    // Fusible déjà grillé ?
-    if (state.aFuseBlown && d.range < 10) {
-      return { text:"FUSE", on:true, note:"Fusible mA grillé (reset pour réarmer)." };
-    }
+    // Si calibre < intensité : ERREUR
+    if (I > rangeA + 1e-12) return { text:"ERREUR", unit:"" };
 
-    // Jack rouge adapté ?
-    if (!isAmmeterJackCorrectForRange(d, aRedJack.value)) {
-      return { text:"OL", on:true, note:"Ampèremètre : jack rouge incompatible avec le calibre choisi." };
-    }
-
-    // Court-circuit si branché N1<->N0 ou aux bornes de R en mode courant
-    if (isAmmeterParallelShort(aBlackNode.value, aRedNode.value) || isAmmeterAcrossResistor(aBlackNode.value, aRedNode.value)) {
-      if (d.range < 10) {
-        state.aFuseBlown = true;
-        return { text:"FUSE", on:true, note:"Court-circuit en mode mA → fusible grillé." };
-      }
-      return { text:"OL", on:true, note:"Court-circuit potentiel en 10A → surcharge." };
-    }
-
-    // Mesure correcte seulement si inséré en série (SER_L <-> SER_R)
-    const inserted = isAmmeterInsertedInSeries(aBlackNode.value, aRedNode.value);
-    if (!inserted) return { text:"0.000", on:true, note:"Ampèremètre non inséré en série (utiliser SER_L et SER_R)." };
-
-    // Circuit fermé -> I = U/R
-    const I = idealCurrent(state.U, state.R);
-    const abs = Math.abs(I);
-
-    // Hors calibre
-    if (abs > d.range + 1e-12) return { text:"OL", on:true, note:`Ampèremètre hors calibre (${d.range} A).` };
-
-    // Format affichage selon gamme
-    // En mA pour gammes < 1A (ce qui est le cas ici, sauf 10A)
-    let text;
-    if (d.range < 1) {
-      // affichage en mA, avec 1 décimale sur 200mA/20mA, etc.
-      const mA = I * 1000;
-      const dec = (d.range <= 0.002) ? 2 : 1; // 2mA -> un peu plus fin
-      text = mA.toFixed(dec);
-      return { text, on:true, unit:"mA", note:"Ampèremètre : OK (mA)." };
-    } else {
-      // 10A
-      text = I.toFixed(3);
-      return { text, on:true, unit:"A", note:"Ampèremètre : OK (A)." };
-    }
+    // Précision augmente quand on diminue le calibre
+    // 200mA -> 1 décimale ; 20mA -> 2 ; 2mA -> 3
+    const decimals = (state.aRangeIndex === 0) ? 1 : (state.aRangeIndex === 1) ? 2 : 3;
+    return { text: format_mA(I, decimals), unit:"mA" };
   }
 
-  // ====== Référence (valeurs idéales) ======
-  function updateRef(){
-    const I = idealCurrent(state.U, state.R);
-    const mA = I * 1000;
-    refTxt.textContent = `U = ${state.U.toFixed(1)} V ; R = ${state.R.toFixed(0)} Ω ; I = ${mA.toFixed(1)} mA (idéal)`;
+  function syncNumbers(){
+    state.U = clamp(parseFloat(uRange.value), 0, 10);
+    uTxt.textContent = state.U.toFixed(1);
+
+    rTxt.textContent = String(state.R);
+
+    const I = I_phys(state.U, state.R);
+    iIdeal.textContent = format_mA(I, 1);
   }
 
-  // ====== Dessin des multimètres + montage ======
-  function roundRect(x,y,w,h,r, fill, stroke){
-    ctx.beginPath();
-    ctx.moveTo(x+r, y);
-    ctx.arcTo(x+w, y, x+w, y+h, r);
-    ctx.arcTo(x+w, y+h, x, y+h, r);
-    ctx.arcTo(x, y+h, x, y, r);
-    ctx.arcTo(x, y, x+w, y, r);
-    ctx.closePath();
-    if (fill){ ctx.fillStyle = fill; ctx.fill(); }
-    if (stroke){ ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); }
-  }
-
-  function drawDMM(x,y,w,h, title, reading, unit, dialText, isOn, alertText){
-    // body
-    roundRect(x,y,w,h,18,"rgba(0,0,0,.35)","rgba(255,255,255,.10)");
-    // header label
-    ctx.fillStyle = "rgba(233,238,252,.92)";
-    ctx.font = "800 12px system-ui,Segoe UI,Arial";
-    ctx.fillText(title, x+14, y+18);
-
-    // screen
-    const sx = x+14, sy = y+26, sw = w-28, sh = 62;
-    roundRect(sx,sy,sw,sh,12, isOn ? "rgba(103,232,166,.12)" : "rgba(0,0,0,.25)", "rgba(255,255,255,.10)");
-
-    // reading
-    ctx.fillStyle = isOn ? "rgba(103,232,166,.92)" : "rgba(233,238,252,.22)";
-    ctx.font = "900 34px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
-    const txt = format7segNumber(reading);
-    ctx.fillText(txt, sx+14, sy+44);
-
-    // unit
-    ctx.fillStyle = isOn ? "rgba(233,238,252,.78)" : "rgba(233,238,252,.22)";
-    ctx.font = "800 16px system-ui,Segoe UI,Arial";
-    ctx.fillText(unit || "", sx+sw-52, sy+44);
-
-    // knob zone
-    const kx = x + w/2, ky = y + h - 110;
-    ctx.fillStyle = "rgba(255,255,255,.06)";
-    ctx.beginPath(); ctx.arc(kx,ky,68,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(kx,ky,68,0,Math.PI*2); ctx.stroke();
-
-    // pointer (simple)
+  // ====== Dessin ======
+  function drawHotRect(h, color){
     ctx.save();
-    ctx.translate(kx,ky);
-    ctx.rotate(-Math.PI/2 + dialText.angle);
-    ctx.strokeStyle = "rgba(233,238,252,.75)";
-    ctx.lineWidth = 6;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(0,0);
-    ctx.lineTo(54,0);
-    ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(h.x * canvas.width, h.y * canvas.height, h.w * canvas.width, h.h * canvas.height);
     ctx.restore();
-
-    // dial label
-    ctx.fillStyle = "rgba(233,238,252,.80)";
-    ctx.font = "800 12px system-ui,Segoe UI,Arial";
-    ctx.fillText(dialText.label, x+14, y+h-18);
-
-    // alert
-    if (alertText){
-      ctx.fillStyle = "rgba(255,77,109,.95)";
-      ctx.font = "900 12px system-ui,Segoe UI,Arial";
-      ctx.fillText(alertText, sx+sw-70, sy+18);
-    }
-
-    // jacks representation (COM / VΩmA / mA / 10A)
-    // purely decorative here; wiring done via selects
-    const jy = y + h - 36;
-    const jx1 = x + 40, jx2 = x + 90, jx3 = x + w - 90, jx4 = x + w - 40;
-
-    drawJack(jx1, jy, "COM", "#9aa4b2");
-    drawJack(jx2, jy, "VΩmA", "#67e8a6");
-    drawJack(jx3, jy, "mA", "#67e8a6");
-    drawJack(jx4, jy, "10A", "#ff4d6d");
   }
 
-  function drawJack(x,y,label,color){
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = color; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2); ctx.stroke();
-    ctx.fillStyle = "rgba(233,238,252,.70)";
-    ctx.font = "700 10px system-ui,Segoe UI,Arial";
-    ctx.fillText(label, x-16, y+22);
-  }
+  function drawKnobMarker(which, angle){
+    const k = KNOB[which];
+    const cx = k.cx * canvas.width;
+    const cy = k.cy * canvas.height;
 
-  function dialVisual(val){
-    // convert select value into (label, angle)
-    // just aesthetic
-    const map = {
-      "OFF": { label:"OFF", angle: 0.0 },
-      "V_0.2": { label:"V⎓ 200mV", angle: 0.6 },
-      "V_2": { label:"V⎓ 2V", angle: 1.0 },
-      "V_20": { label:"V⎓ 20V", angle: 1.4 },
-      "A_0.002": { label:"A⎓ 2mA", angle: 0.6 },
-      "A_0.02": { label:"A⎓ 20mA", angle: 1.0 },
-      "A_0.2": { label:"A⎓ 200mA", angle: 1.4 },
-      "A_10": { label:"A⎓ 10A", angle: 1.8 },
-    };
-    return map[val] || { label: val, angle: 0.0 };
-  }
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(angle);
 
-  function drawCircuitPanel(x,y,w,h){
-    roundRect(x,y,w,h,18,"rgba(255,255,255,.04)","rgba(255,255,255,.10)");
-
-    ctx.fillStyle = "rgba(233,238,252,.92)";
-    ctx.font = "800 16px system-ui,Segoe UI,Arial";
-    ctx.fillText("Montage / points de connexion", x+14, y+22);
-
-    // draw nodes labels (visual map)
-    const p = {
-      N1: {x:x+85, y:y+78},
-      N0: {x:x+85, y:y+h-70},
-      SER_L: {x:x+w/2-80, y:y+78},
-      SER_R: {x:x+w/2+80, y:y+78},
-      NR: {x:x+w-110, y:y+78},
-      NL: {x:x+w-110, y:y+h-70},
-    };
-
-    // wires rectangle
-    ctx.strokeStyle = "rgba(233,238,252,.70)";
-    ctx.lineWidth = 4;
+    // repère (ligne)
+    ctx.strokeStyle = "rgba(255,255,255,.85)";
+    ctx.lineWidth = 10;
     ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(p.N1.x, p.N1.y);
-    ctx.lineTo(p.SER_L.x, p.SER_L.y);
-    ctx.lineTo(p.SER_R.x, p.SER_R.y);
-    ctx.lineTo(p.NR.x, p.NR.y);
-    ctx.lineTo(p.NL.x, p.NL.y);
-    ctx.lineTo(p.N0.x, p.N0.y);
-    ctx.closePath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(k.r, 0);
     ctx.stroke();
 
-    // source label
-    ctx.fillStyle = "rgba(122,167,255,.20)";
-    roundRect(x+20, y+52, 130, 140, 14, "rgba(122,167,255,.12)", "rgba(122,167,255,.45)");
-    ctx.fillStyle = "rgba(233,238,252,.92)";
-    ctx.font = "800 13px system-ui,Segoe UI,Arial";
-    ctx.fillText("Générateur", x+32, y+74);
-    ctx.fillStyle = "rgba(233,238,252,.80)";
-    ctx.font = "900 18px system-ui,Segoe UI,Arial";
-    ctx.fillText(`${state.U.toFixed(1)} V`, x+42, y+118);
+    // point au bout
+    ctx.fillStyle = "rgba(255,77,109,.92)";
+    ctx.beginPath();
+    ctx.arc(k.r, 0, 8, 0, Math.PI*2);
+    ctx.fill();
 
-    // resistor label
-    roundRect(x+w-230, y+52, 200, 64, 14, "rgba(255,209,102,.10)", "rgba(255,209,102,.45)");
-    ctx.fillStyle = "rgba(233,238,252,.92)";
-    ctx.font = "800 13px system-ui,Segoe UI,Arial";
-    ctx.fillText("Résistance", x+w-218, y+74);
-    ctx.fillStyle = "rgba(233,238,252,.85)";
-    ctx.font = "900 18px system-ui,Segoe UI,Arial";
-    ctx.fillText(`${Math.round(state.R)} Ω`, x+w-120, y+96);
-
-    // nodes
-    Object.entries(p).forEach(([k,pt]) => drawNode(pt.x, pt.y, k));
+    ctx.restore();
   }
 
-  function drawNode(x,y,label){
-    ctx.fillStyle = "rgba(0,0,0,.35)";
-    ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle = "rgba(103,232,166,.75)";
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2); ctx.stroke();
+  function drawLCD(which, text, unit){
+    const r = LCD[which];
+    const x = r.x * canvas.width;
+    const y = r.y * canvas.height;
+    const w = r.w * canvas.width;
+    const h = r.h * canvas.height;
 
-    ctx.fillStyle = "rgba(233,238,252,.80)";
-    ctx.font = "800 11px system-ui,Segoe UI,Arial";
-    ctx.fillText(label, x-16, y-14);
+    // léger voile pour lisibilité (sans masquer totalement l'écran)
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,.10)";
+    ctx.fillRect(x, y, w, h);
+
+    ctx.fillStyle = "rgba(0,0,0,.78)";
+    ctx.font = "700 56px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+    ctx.textBaseline = "middle";
+
+    const t = text || "";
+    const ux = unit || "";
+
+    // texte principal
+    ctx.fillText(t, x + 18, y + h/2);
+
+    // unité à droite
+    ctx.font = "700 28px system-ui, Segoe UI, Arial";
+    ctx.fillText(ux, x + w - 55, y + h/2 + 6);
+
+    ctx.restore();
   }
 
   function draw(){
-    const w = canvas.width, h = canvas.height;
-    ctx.clearRect(0,0,w,h);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    // subtle grid
-    ctx.strokeStyle = "rgba(255,255,255,0.05)";
-    ctx.lineWidth = 1;
-    for (let x=20; x<w; x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
-    for (let y=20; y<h; y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
-
-    // Layout: left DMM, center panel (photo or schematic), right DMM
-    const pad = 18;
-    const dmmW = 285, dmmH = 520;
-    const leftX = pad, topY = 20;
-    const rightX = w - pad - dmmW;
-
-    const centerX = leftX + dmmW + 18;
-    const centerW = rightX - 18 - centerX;
-    const centerY = 20;
-    const centerH = 520;
-
-    // Measurements
-    const v = readVoltmeter();
-    const a = readAmmeter();
-
-    // DMM displays: include unit inside display (mA/A)
-    const aUnit = (a.unit ? a.unit : (parseDial(aDial.value).mode === "A" ? (parseDial(aDial.value).range < 1 ? "mA" : "A") : ""));
-    const vUnit = (parseDial(vDial.value).mode === "V" ? "V" : "");
-
-    // Alerts
-    const vAlert = (v.text === "OL" ? "OL" : "");
-    const aAlert = (a.text === "FUSE" ? "FUSE" : (a.text === "OL" ? "OL" : ""));
-
-    // Draw center: photo if available, else schematic panel
-    if (montageOk){
-      roundRect(centerX, centerY, centerW, centerH, 18, "rgba(255,255,255,.04)", "rgba(255,255,255,.10)");
-      // Fit image
-      const margin = 16;
-      const ix = centerX + margin, iy = centerY + 46;
-      const iw = centerW - 2*margin, ih = centerH - 62;
-      // keep aspect
-      const ar = montageImg.width / montageImg.height;
-      let dw = iw, dh = iw / ar;
-      if (dh > ih){ dh = ih; dw = ih * ar; }
-      const dx = ix + (iw-dw)/2;
-      const dy = iy + (ih-dh)/2;
-      ctx.drawImage(montageImg, dx, dy, dw, dh);
-
-      ctx.fillStyle = "rgba(233,238,252,.92)";
-      ctx.font = "900 16px system-ui,Segoe UI,Arial";
-      ctx.fillText("Montage (photo/schéma)", centerX+16, centerY+28);
+    // Fond
+    if (bgOk){
+      ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
     } else {
-      drawCircuitPanel(centerX, centerY, centerW, centerH);
+      ctx.fillStyle = "#111831";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = "rgba(233,238,252,.85)";
+      ctx.font = "800 18px system-ui, Segoe UI, Arial";
+      ctx.fillText("Erreur : fond.jpg introuvable (mets l'image à la racine du dépôt).", 24, 36);
     }
 
-    // Draw DMMs
-    drawDMM(
-      leftX, topY, dmmW, dmmH,
-      "VOLTMÈTRE (DT838)",
-      v.on ? v.text : "",
-      v.on ? vUnit : "",
-      dialVisual(vDial.value),
-      v.on,
-      vAlert
-    );
+    // Mesures (overlay)
+    const v = readVoltmeter();
+    const a = readAmmeter();
+    drawLCD("v", v.text, v.unit);
+    drawLCD("a", a.text, a.unit);
 
-    drawDMM(
-      rightX, topY, dmmW, dmmH,
-      "AMPÈREMÈTRE (DT838)",
-      a.on ? a.text : "",
-      a.on ? (a.unit || (parseDial(aDial.value).range < 1 ? "mA" : "A")) : "",
-      dialVisual(aDial.value),
-      a.on,
-      aAlert
-    );
+    // Repères “molettes”
+    // Voltmètre : OFF tant que pas cliqué
+    drawKnobMarker("v", state.vOn ? ANG.v_dc : ANG.v_off);
 
-    // Top small status
-    ctx.fillStyle = "rgba(233,238,252,.78)";
-    ctx.font = "800 13px system-ui,Segoe UI,Arial";
-    ctx.fillText(`U = ${state.U.toFixed(1)} V  |  R = ${Math.round(state.R)} Ω`, pad, 16);
+    // Ampèremètre : angle selon calibre choisi
+    let aAng = ANG.a_off;
+    if (state.aRangeIndex === 0) aAng = ANG.a_200m;
+    if (state.aRangeIndex === 1) aAng = ANG.a_20m;
+    if (state.aRangeIndex === 2) aAng = ANG.a_2m;
+    drawKnobMarker("a", aAng);
 
-    // Notes at bottom (small)
-    ctx.fillStyle = "rgba(233,238,252,.58)";
-    ctx.font = "700 12px system-ui,Segoe UI,Arial";
-    ctx.fillText("⚠️ L'affichage dépend de OFF / calibre / branchement (COM + jack rouge + points).", pad, h-10);
-
-    // Update status box text
-    const notes = [];
-    notes.push(`Voltmètre : ${v.note}`);
-    notes.push(`Ampèremètre : ${a.note}`);
-    statusBox.textContent = notes.join("  |  ");
+    // Debug visuel : zones
+    if (state.showHotspots){
+      drawHotRect(HOT.v_dc, "rgba(103,232,166,.95)");
+      drawHotRect(HOT.a_200m, "rgba(122,167,255,.95)");
+      drawHotRect(HOT.a_20m,  "rgba(122,167,255,.95)");
+      drawHotRect(HOT.a_2m,   "rgba(122,167,255,.95)");
+    }
   }
 
-  // ====== UI sync ======
-  function sync(){
-    state.U = clamp(parseFloat(uRange.value), 0, 10);
-    state.R = clamp(parseFloat(rRange.value), 10, 470);
+  // ====== Click handler (zones cliquables) ======
+  canvas.addEventListener("click", (evt) => {
+    const p = normPos(evt);
 
-    uTxt.textContent = state.U.toFixed(1);
-    rTxt.textContent = String(Math.round(state.R));
+    // Voltmètre (1 zone)
+    if (inRect(p.x, p.y, HOT.v_dc)){
+      state.vOn = true;
+      status.textContent = "Voltmètre réglé sur V⎓ : affichage de la tension U aux bornes de R.";
+      draw();
+      return;
+    }
 
-    updateRef();
+    // Ampèremètre (3 zones)
+    if (inRect(p.x, p.y, HOT.a_200m)){
+      state.aRangeIndex = 0;
+      status.textContent = "Ampèremètre réglé sur calibre 200 mA (A⎓).";
+      draw();
+      return;
+    }
+    if (inRect(p.x, p.y, HOT.a_20m)){
+      state.aRangeIndex = 1;
+      status.textContent = "Ampèremètre réglé sur calibre 20 mA (A⎓).";
+      draw();
+      return;
+    }
+    if (inRect(p.x, p.y, HOT.a_2m)){
+      state.aRangeIndex = 2;
+      status.textContent = "Ampèremètre réglé sur calibre 2 mA (A⎓).";
+      draw();
+      return;
+    }
+  });
+
+  // ====== Events UI ======
+  uRange.addEventListener("input", () => {
+    syncNumbers();
     draw();
-  }
-
-  // ====== Events ======
-  [
-    uRange, rRange,
-    vDial, vRedJack, vBlackNode, vRedNode,
-    aDial, aRedJack, aBlackNode, aRedNode
-  ].forEach(el => el.addEventListener("input", sync));
+  });
 
   resetBtn.addEventListener("click", () => {
-    state.aFuseBlown = false;
-
-    uRange.value = "3.4";
-    rRange.value = "33";
-    vDial.value = "V_20";
-    vRedJack.value = "V";
-    vBlackNode.value = "NL";
-    vRedNode.value = "NR";
-
-    aDial.value = "A_0.2";
-    aRedJack.value = "mA";
-    aBlackNode.value = "SER_L";
-    aRedNode.value = "SER_R";
-
-    refCard.style.display = "none";
-    sync();
+    state.U = 3.0;
+    state.R = 100;
+    state.vOn = false;
+    state.aRangeIndex = null;
+    uRange.value = String(state.U);
+    setActiveR(state.R);
+    syncNumbers();
+    status.textContent = "Reset : cliquez sur les zones des multimètres pour choisir V⎓ et un calibre A⎓.";
+    draw();
   });
 
-  refBtn.addEventListener("click", () => {
-    refCard.style.display = (refCard.style.display === "none") ? "block" : "none";
-    updateRef();
+  showHotBtn.addEventListener("click", () => {
+    state.showHotspots = !state.showHotspots;
+    draw();
   });
 
-  // Init (valeurs par défaut cohérentes)
-  // Voltmètre par défaut aux bornes de R, ampèremètre inséré en série.
-  vBlackNode.value = "NL";
-  vRedNode.value = "NR";
-  aBlackNode.value = "SER_L";
-  aRedNode.value = "SER_R";
+  // ====== Init ======
+  buildResButtons();
+  syncNumbers();
+  status.textContent = "Cliquez sur la zone V⎓ (voltmètre gauche) et sur un calibre A⎓ (ampèremètre droite).";
+  draw();
 
-  sync();
 })();
