@@ -388,4 +388,168 @@
     ctx.fillStyle = "rgba(233,238,252,.92)";
     ctx.font = "800 13px system-ui,Segoe UI,Arial";
     ctx.fillText("Résistance", x+w-218, y+74);
-    ctx.fillStyle = "rgba(233,238,252,.85)
+    ctx.fillStyle = "rgba(233,238,252,.85)";
+    ctx.font = "900 18px system-ui,Segoe UI,Arial";
+    ctx.fillText(`${Math.round(state.R)} Ω`, x+w-120, y+96);
+
+    // nodes
+    Object.entries(p).forEach(([k,pt]) => drawNode(pt.x, pt.y, k));
+  }
+
+  function drawNode(x,y,label){
+    ctx.fillStyle = "rgba(0,0,0,.35)";
+    ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "rgba(103,232,166,.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x,y,9,0,Math.PI*2); ctx.stroke();
+
+    ctx.fillStyle = "rgba(233,238,252,.80)";
+    ctx.font = "800 11px system-ui,Segoe UI,Arial";
+    ctx.fillText(label, x-16, y-14);
+  }
+
+  function draw(){
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0,0,w,h);
+
+    // subtle grid
+    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+    ctx.lineWidth = 1;
+    for (let x=20; x<w; x+=40){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for (let y=20; y<h; y+=40){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+
+    // Layout: left DMM, center panel (photo or schematic), right DMM
+    const pad = 18;
+    const dmmW = 285, dmmH = 520;
+    const leftX = pad, topY = 20;
+    const rightX = w - pad - dmmW;
+
+    const centerX = leftX + dmmW + 18;
+    const centerW = rightX - 18 - centerX;
+    const centerY = 20;
+    const centerH = 520;
+
+    // Measurements
+    const v = readVoltmeter();
+    const a = readAmmeter();
+
+    // DMM displays: include unit inside display (mA/A)
+    const aUnit = (a.unit ? a.unit : (parseDial(aDial.value).mode === "A" ? (parseDial(aDial.value).range < 1 ? "mA" : "A") : ""));
+    const vUnit = (parseDial(vDial.value).mode === "V" ? "V" : "");
+
+    // Alerts
+    const vAlert = (v.text === "OL" ? "OL" : "");
+    const aAlert = (a.text === "FUSE" ? "FUSE" : (a.text === "OL" ? "OL" : ""));
+
+    // Draw center: photo if available, else schematic panel
+    if (montageOk){
+      roundRect(centerX, centerY, centerW, centerH, 18, "rgba(255,255,255,.04)", "rgba(255,255,255,.10)");
+      // Fit image
+      const margin = 16;
+      const ix = centerX + margin, iy = centerY + 46;
+      const iw = centerW - 2*margin, ih = centerH - 62;
+      // keep aspect
+      const ar = montageImg.width / montageImg.height;
+      let dw = iw, dh = iw / ar;
+      if (dh > ih){ dh = ih; dw = ih * ar; }
+      const dx = ix + (iw-dw)/2;
+      const dy = iy + (ih-dh)/2;
+      ctx.drawImage(montageImg, dx, dy, dw, dh);
+
+      ctx.fillStyle = "rgba(233,238,252,.92)";
+      ctx.font = "900 16px system-ui,Segoe UI,Arial";
+      ctx.fillText("Montage (photo/schéma)", centerX+16, centerY+28);
+    } else {
+      drawCircuitPanel(centerX, centerY, centerW, centerH);
+    }
+
+    // Draw DMMs
+    drawDMM(
+      leftX, topY, dmmW, dmmH,
+      "VOLTMÈTRE (DT838)",
+      v.on ? v.text : "",
+      v.on ? vUnit : "",
+      dialVisual(vDial.value),
+      v.on,
+      vAlert
+    );
+
+    drawDMM(
+      rightX, topY, dmmW, dmmH,
+      "AMPÈREMÈTRE (DT838)",
+      a.on ? a.text : "",
+      a.on ? (a.unit || (parseDial(aDial.value).range < 1 ? "mA" : "A")) : "",
+      dialVisual(aDial.value),
+      a.on,
+      aAlert
+    );
+
+    // Top small status
+    ctx.fillStyle = "rgba(233,238,252,.78)";
+    ctx.font = "800 13px system-ui,Segoe UI,Arial";
+    ctx.fillText(`U = ${state.U.toFixed(1)} V  |  R = ${Math.round(state.R)} Ω`, pad, 16);
+
+    // Notes at bottom (small)
+    ctx.fillStyle = "rgba(233,238,252,.58)";
+    ctx.font = "700 12px system-ui,Segoe UI,Arial";
+    ctx.fillText("⚠️ L'affichage dépend de OFF / calibre / branchement (COM + jack rouge + points).", pad, h-10);
+
+    // Update status box text
+    const notes = [];
+    notes.push(`Voltmètre : ${v.note}`);
+    notes.push(`Ampèremètre : ${a.note}`);
+    statusBox.textContent = notes.join("  |  ");
+  }
+
+  // ====== UI sync ======
+  function sync(){
+    state.U = clamp(parseFloat(uRange.value), 0, 10);
+    state.R = clamp(parseFloat(rRange.value), 10, 470);
+
+    uTxt.textContent = state.U.toFixed(1);
+    rTxt.textContent = String(Math.round(state.R));
+
+    updateRef();
+    draw();
+  }
+
+  // ====== Events ======
+  [
+    uRange, rRange,
+    vDial, vRedJack, vBlackNode, vRedNode,
+    aDial, aRedJack, aBlackNode, aRedNode
+  ].forEach(el => el.addEventListener("input", sync));
+
+  resetBtn.addEventListener("click", () => {
+    state.aFuseBlown = false;
+
+    uRange.value = "3.4";
+    rRange.value = "33";
+    vDial.value = "V_20";
+    vRedJack.value = "V";
+    vBlackNode.value = "NL";
+    vRedNode.value = "NR";
+
+    aDial.value = "A_0.2";
+    aRedJack.value = "mA";
+    aBlackNode.value = "SER_L";
+    aRedNode.value = "SER_R";
+
+    refCard.style.display = "none";
+    sync();
+  });
+
+  refBtn.addEventListener("click", () => {
+    refCard.style.display = (refCard.style.display === "none") ? "block" : "none";
+    updateRef();
+  });
+
+  // Init (valeurs par défaut cohérentes)
+  // Voltmètre par défaut aux bornes de R, ampèremètre inséré en série.
+  vBlackNode.value = "NL";
+  vRedNode.value = "NR";
+  aBlackNode.value = "SER_L";
+  aRedNode.value = "SER_R";
+
+  sync();
+})();
