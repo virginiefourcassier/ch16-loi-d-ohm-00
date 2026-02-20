@@ -75,8 +75,6 @@
   };
 
   // ====== LCD (texte superposé) ======
-  // Ici on place le texte AU MÊME ENDROIT que précédemment.
-  // Si besoin, on recalera ensuite.
   const LCD_POS = {
     volt: { x: 0.12, y: 0.23 }, // en fraction
     amp:  { x: 0.72, y: 0.23 }
@@ -111,7 +109,7 @@
   // ====== MESURES ======
   function readVoltText() {
     if (state.vMode !== "VDC") return "";
-    return state.U.toFixed(2); // affichage U
+    return state.U.toFixed(2);
   }
 
   function readAmpText() {
@@ -123,7 +121,7 @@
     const rangeA =
       state.aMode === "2A" ? 2 :
       state.aMode === "mA" ? 0.2 :
-      0.02; // "uA" ici = plus petit calibre (20 mA) selon ton image, on garde la logique
+      0.02; // "uA" = plus petit calibre (20 mA)
 
     if (I > rangeA + 1e-12) return "ERREUR";
 
@@ -131,10 +129,9 @@
     const decimals =
       state.aMode === "2A" ? 0 :
       state.aMode === "mA" ? 1 :
-      2; // plus petit calibre -> plus de décimales
+      2;
 
-    // affichage en mA (cohérent avec ton panneau)
-    return (I * 1000).toFixed(decimals);
+    return (I * 1000).toFixed(decimals); // mA
   }
 
   // ====== DESSIN ======
@@ -152,8 +149,6 @@
   }
 
   function drawOverlays() {
-    // On ne superpose QUE quand sélection faite
-
     // voltmètre
     if (state.vMode === "VDC") {
       ctx.drawImage(
@@ -220,10 +215,7 @@
       ctx.fillText("FOND NON CHARGÉ", 40, 90);
     }
 
-    // overlays (uniquement après clic)
     drawOverlays();
-
-    // texte LCD (uniquement après clic)
     drawLCDText();
 
     if (state.showHotspots) {
@@ -251,6 +243,7 @@
 
   canvas.addEventListener("click", (e) => {
     const p = normPos(e);
+    console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3)); // ✅ DEBUG
 
     // Voltmètre
     if (inRect(p.x, p.y, HOT.v_vdc)) {
