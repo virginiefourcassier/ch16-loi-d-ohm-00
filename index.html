@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>⚡ Étude de la loi d’Ohm</title>
+
+<style>
+:root{
+  --bg:#0b1020;
+  --panel:#0f1730;
+  --text:#e9eefc;
+  --muted:#b8c2e6;
+  --ok:#67e8a6;
+  --border:rgba(255,255,255,.12);
+  --radius:16px;
+  font-family: system-ui, Segoe UI, Arial, sans-serif;
+}
+body{
+  margin:0;
+  background: radial-gradient(1000px 600px at 20% 0%, #14204a, var(--bg));
+  color:var(--text);
+}
+.wrap{
+  max-width:1150px;
+  margin:0 auto;
+  padding:18px;
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap:18px;
+}
+.stage, .controls{
+  background: var(--panel);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:14px;
+}
+.stage img{
+  width:100%;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.08);
+}
+.controls h1{
+  font-size:18px;
+  margin:0 0 8px 0;
+}
+.card{
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:12px;
+}
+.value{
+  font-weight:700;
+  color:var(--ok);
+  font-variant-numeric: tabular-nums;
+}
+input[type=range]{
+  width:100%;
+}
+select{
+  width:100%;
+  padding:8px;
+  border-radius:10px;
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  border:1px solid rgba(255,255,255,.12);
+}
+button{
+  padding:10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  font-weight:600;
+  cursor:pointer;
+}
+button:hover{background:rgba(255,255,255,.1);}
+.footer{
+  font-size:12px;
+  text-align:right;
+  margin-top:8px;
+  opacity:.8;
+}
+@media(max-width:900px){
+  .wrap{grid-template-columns:1fr;}
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+  <!-- IMAGE DU MONTAGE -->
+  <div class="stage">
+    <!-- Remplacer montage.jpg par ton image -->
+    <img src="montage.jpg" alt="Montage expérimental Loi d'Ohm">
+    <div class="footer">Virginie Fourcassier. Lycée Pierre de Fermat. Toulouse</div>
+  </div>
+
+  <!-- PANNEAU DE CONTRÔLE -->
+  <div class="controls">
+    <h1>⚡ Étude de la loi d’Ohm</h1>
+
+    <div class="card">
+      <div>Tension U : <span id="uTxt" class="value">0.0</span> V</div>
+      <input id="uRange" type="range" min="0" max="10" step="0.1" value="0">
+    </div>
+
+    <div class="card">
+      Résistance R :
+      <select id="rSelect">
+        <option>10</option>
+        <option>33</option>
+        <option>47</option>
+        <option>68</option>
+        <option selected>100</option>
+        <option>220</option>
+        <option>330</option>
+        <option>470</option>
+      </select>
+    </div>
+
+    <div class="card">
+      Calibre Voltmètre :
+      <select id="vRangeSel">
+        <option value="0.2">200 mV</option>
+        <option value="2">2 V</option>
+        <option value="20" selected>20 V</option>
+      </select>
+    </div>
+
+    <div class="card">
+      Calibre Ampèremètre :
+      <select id="aRangeSel">
+        <option value="0.002">2 mA</option>
+        <option value="0.02">20 mA</option>
+        <option value="0.2" selected>200 mA</option>
+        <option value="10">10 A</option>
+      </select>
+    </div>
+
+    <div class="card">
+      Intensité I : <span id="iTxt" class="value">0.0</span> <span id="iUnit">mA</span>
+    </div>
+
+    <button id="resetBtn">Reset</button>
+  </div>
+
+</div>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
