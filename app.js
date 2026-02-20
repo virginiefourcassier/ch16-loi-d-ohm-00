@@ -53,26 +53,25 @@
   const imgAuA = new Image();
   imgAuA.src = "amperemetre_microA.png?v=1";
 
-  // ====== PLACEMENT DES OVERLAYS (à ajuster si besoin) ======
-  // (positions en fraction du canvas : x,y,w,h)
-  const OVER = {
-    volt: { x: 0.05, y: 0.10, w: 0.30, h: 0.75 },
-    amp:  { x: 0.65, y: 0.10, w: 0.30, h: 0.75 }
-  };
+  // ====== PLACEMENT DES OVERLAYS (corrigé) ======
+const OVER = {
+  // un peu plus grand, un peu plus bas, et vers le bord extérieur
+  volt: { x: 0.020, y: 0.125, w: 0.335, h: 0.800 },
+  amp:  { x: 0.655, y: 0.125, w: 0.335, h: 0.800 }
+};
 
-  // ====== HOTSPOTS (zones cliquables) ======
-  // IMPORTANT : coordonnées en fraction, à ajuster avec "Zones".
-  const HOT = {
-    // Voltmètre gauche
-    v_vdc: { x: 0.07, y: 0.38, w: 0.20, h: 0.18 },  // clic sur V⎓
-    v_off: { x: 0.07, y: 0.60, w: 0.12, h: 0.12 },  // clic sur OFF (à ajuster)
+// ====== HOTSPOTS (corrigé) ======
+const HOT = {
+  // Voltmètre gauche : zones décalées vers la gauche + bas
+  v_vdc: { x: 0.045, y: 0.415, w: 0.225, h: 0.195 },
+  v_off: { x: 0.060, y: 0.640, w: 0.160, h: 0.120 },
 
-    // Ampèremètre droit
-    a_2a:  { x: 0.73, y: 0.40, w: 0.18, h: 0.12 },  // clic sur 2A
-    a_ma:  { x: 0.73, y: 0.52, w: 0.18, h: 0.12 },  // clic sur mA
-    a_ua:  { x: 0.73, y: 0.64, w: 0.18, h: 0.12 },  // clic sur µA
-    a_off: { x: 0.67, y: 0.60, w: 0.12, h: 0.12 }   // clic sur OFF (à ajuster)
-  };
+  // Ampèremètre droit : zones décalées vers la droite + bas
+  a_2a:  { x: 0.745, y: 0.430, w: 0.200, h: 0.120 },
+  a_ma:  { x: 0.745, y: 0.555, w: 0.200, h: 0.120 },
+  a_ua:  { x: 0.745, y: 0.680, w: 0.200, h: 0.120 },
+  a_off: { x: 0.705, y: 0.640, w: 0.160, h: 0.120 }
+};
 
   // ====== LCD (texte superposé) ======
   const LCD_POS = {
