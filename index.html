@@ -1,156 +1,269 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>⚡ Étude de la loi d’Ohm</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>⚡ Loi d'Ohm — Simulation avancée (multimètres)</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --panel:#0f1730;
+      --card:rgba(255,255,255,.05);
+      --border:rgba(255,255,255,.12);
+      --text:#e9eefc;
+      --muted:#b8c2e6;
+      --ok:#67e8a6;
+      --warn:#ffd166;
+      --bad:#ff4d6d;
+      --radius:16px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    body{
+      margin:0;
+      background: radial-gradient(1100px 650px at 18% 0%, #14204a, var(--bg));
+      color:var(--text);
+    }
+    .wrap{
+      max-width:1200px;
+      margin:0 auto;
+      padding:18px;
+      display:grid;
+      grid-template-columns: 1.28fr .72fr;
+      gap:16px;
+    }
+    .stage, .controls{
+      background: rgba(15,23,48,.72);
+      border:1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 16px 40px rgba(0,0,0,.35);
+    }
+    .stage{ padding:12px; }
+    canvas{
+      width:100%;
+      height:auto;
+      display:block;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .footer{
+      margin-top:8px;
+      font-size:12px;
+      text-align:right;
+      opacity:.85;
+    }
 
-<style>
-:root{
-  --bg:#0b1020;
-  --panel:#0f1730;
-  --text:#e9eefc;
-  --muted:#b8c2e6;
-  --ok:#67e8a6;
-  --border:rgba(255,255,255,.12);
-  --radius:16px;
-  font-family: system-ui, Segoe UI, Arial, sans-serif;
-}
-body{
-  margin:0;
-  background: radial-gradient(1000px 600px at 20% 0%, #14204a, var(--bg));
-  color:var(--text);
-}
-.wrap{
-  max-width:1150px;
-  margin:0 auto;
-  padding:18px;
-  display:grid;
-  grid-template-columns: 1.2fr .8fr;
-  gap:18px;
-}
-.stage, .controls{
-  background: var(--panel);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  padding:14px;
-}
-.stage img{
-  width:100%;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.08);
-}
-.controls h1{
-  font-size:18px;
-  margin:0 0 8px 0;
-}
-.card{
-  background:rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:14px;
-  padding:12px;
-  margin-bottom:12px;
-}
-.value{
-  font-weight:700;
-  color:var(--ok);
-  font-variant-numeric: tabular-nums;
-}
-input[type=range]{
-  width:100%;
-}
-select{
-  width:100%;
-  padding:8px;
-  border-radius:10px;
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  border:1px solid rgba(255,255,255,.12);
-}
-button{
-  padding:10px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.15);
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  font-weight:600;
-  cursor:pointer;
-}
-button:hover{background:rgba(255,255,255,.1);}
-.footer{
-  font-size:12px;
-  text-align:right;
-  margin-top:8px;
-  opacity:.8;
-}
-@media(max-width:900px){
-  .wrap{grid-template-columns:1fr;}
-}
-</style>
+    .controls{ padding:14px; display:flex; flex-direction:column; gap:12px; }
+    h1{ font-size:18px; margin:0; }
+    .sub{ color:var(--muted); font-size:13px; line-height:1.35; margin-top:6px; }
+
+    .card{
+      background: var(--card);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius: 14px;
+      padding:12px;
+    }
+    .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .label{ font-weight:700; }
+    .val{
+      font-variant-numeric: tabular-nums;
+      font-weight:800;
+      color:var(--ok);
+    }
+    .muted{ color:var(--muted); font-size:12px; }
+
+    input[type="range"]{ width:100%; }
+
+    .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    select{
+      width:100%;
+      padding:10px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      color: var(--text);
+      outline:none;
+    }
+    select:focus{ border-color: rgba(122,167,255,.75); }
+
+    .actions{ display:flex; gap:8px; }
+    button{
+      flex:1;
+      padding:10px 10px;
+      border-radius: 12px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      font-weight:750;
+      cursor:pointer;
+    }
+    button:hover{ background: rgba(255,255,255,.10); }
+    button.primary{
+      border-color: rgba(122,167,255,.75);
+      background: rgba(122,167,255,.18);
+    }
+
+    .hint{
+      border-left: 4px solid rgba(122,167,255,.8);
+      padding-left:10px;
+      color:rgba(233,238,252,.86);
+      font-size:12.5px;
+      line-height:1.4;
+    }
+
+    @media (max-width: 920px){
+      .wrap{ grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="wrap">
+  <div class="wrap">
+    <section class="stage">
+      <canvas id="c" width="980" height="560"></canvas>
+      <div class="footer">Virginie Fourcassier. Lycée Pierre de Fermat. Toulouse</div>
+    </section>
 
-  <!-- IMAGE DU MONTAGE -->
-  <div class="stage">
-    <!-- Remplacer montage.jpg par ton image -->
-    <img src="montage.jpg" alt="Montage expérimental Loi d'Ohm">
-    <div class="footer">Virginie Fourcassier. Lycée Pierre de Fermat. Toulouse</div>
+    <aside class="controls">
+      <div>
+        <h1>⚡ Étude de la loi d’Ohm (avancée)</h1>
+        <div class="sub">
+          Les multimètres affichent selon : <b>position OFF</b>, <b>calibre</b> et <b>branchement</b> (COM / VΩmA / 10A + points du circuit).
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="label">Tension du générateur U</div>
+          <div class="val"><span id="uTxt">3.4</span> <span class="muted">V</span></div>
+        </div>
+        <input id="uRange" type="range" min="0" max="10" step="0.1" value="3.4">
+        <div class="muted">0 → 10 V (pas 0,1 V)</div>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <div class="label">Résistance R</div>
+          <div class="val"><span id="rTxt">33</span> <span class="muted">Ω</span></div>
+        </div>
+        <input id="rRange" type="range" min="10" max="470" step="1" value="33">
+        <div class="muted">10 → 470 Ω (curseur continu)</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Voltmètre (à gauche)</div>
+        <div class="grid2" style="margin-top:8px;">
+          <div>
+            <div class="muted">Sélecteur</div>
+            <select id="vDial">
+              <option value="OFF">OFF</option>
+              <option value="V_0.2">V⎓ 200 mV</option>
+              <option value="V_2">V⎓ 2 V</option>
+              <option value="V_20" selected>V⎓ 20 V</option>
+            </select>
+          </div>
+          <div>
+            <div class="muted">Jack rouge</div>
+            <select id="vRedJack">
+              <option value="V">VΩmA</option>
+              <option value="mA">mA</option>
+              <option value="10A">10A</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:10px;">
+          <div>
+            <div class="muted">Pointe noire (COM) sur :</div>
+            <select id="vBlackNode">
+              <option value="N0">N0 (– du générateur)</option>
+              <option value="N1">N1 (+ du générateur)</option>
+              <option value="NR">NR (borne R côté +)</option>
+              <option value="NL">NL (borne R côté –)</option>
+            </select>
+          </div>
+          <div>
+            <div class="muted">Pointe rouge sur :</div>
+            <select id="vRedNode">
+              <option value="N0">N0 (– du générateur)</option>
+              <option value="N1" selected>N1 (+ du générateur)</option>
+              <option value="NR">NR (borne R côté +)</option>
+              <option value="NL">NL (borne R côté –)</option>
+            </select>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:8px;">Branchement correct : noir sur COM, rouge sur VΩmA, en dérivation sur R.</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Ampèremètre (à droite)</div>
+        <div class="grid2" style="margin-top:8px;">
+          <div>
+            <div class="muted">Sélecteur</div>
+            <select id="aDial">
+              <option value="OFF">OFF</option>
+              <option value="A_0.002">A⎓ 2 mA</option>
+              <option value="A_0.02">A⎓ 20 mA</option>
+              <option value="A_0.2" selected>A⎓ 200 mA</option>
+              <option value="A_10">A⎓ 10 A</option>
+            </select>
+          </div>
+          <div>
+            <div class="muted">Jack rouge</div>
+            <select id="aRedJack">
+              <option value="mA" selected>mA</option>
+              <option value="10A">10A</option>
+              <option value="V">VΩmA</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:10px;">
+          <div>
+            <div class="muted">Pointe noire (COM) sur :</div>
+            <select id="aBlackNode">
+              <option value="SER_L" selected>SER_L (coupure série gauche)</option>
+              <option value="SER_R">SER_R (coupure série droite)</option>
+              <option value="N0">N0 (–)</option>
+              <option value="N1">N1 (+)</option>
+              <option value="NR">NR (borne R côté +)</option>
+              <option value="NL">NL (borne R côté –)</option>
+            </select>
+          </div>
+          <div>
+            <div class="muted">Pointe rouge sur :</div>
+            <select id="aRedNode">
+              <option value="SER_R" selected>SER_R (coupure série droite)</option>
+              <option value="SER_L">SER_L (coupure série gauche)</option>
+              <option value="N0">N0 (–)</option>
+              <option value="N1">N1 (+)</option>
+              <option value="NR">NR (borne R côté +)</option>
+              <option value="NL">NL (borne R côté –)</option>
+            </select>
+          </div>
+        </div>
+        <div class="muted" style="margin-top:8px;">
+          Branchement correct : noir sur COM, rouge sur mA (ou 10A), et connexion <b>entre SER_L et SER_R</b> (en série).
+        </div>
+      </div>
+
+      <div class="card hint" id="statusBox">
+        —
+      </div>
+
+      <div class="actions">
+        <button id="resetBtn">⟲ Reset</button>
+        <button class="primary" id="refBtn">📌 Référence</button>
+      </div>
+
+      <div class="card" id="refCard" style="display:none;">
+        <div class="label">📌 Valeurs idéales (circuit sans erreurs)</div>
+        <div class="muted" id="refTxt"></div>
+      </div>
+    </aside>
   </div>
 
-  <!-- PANNEAU DE CONTRÔLE -->
-  <div class="controls">
-    <h1>⚡ Étude de la loi d’Ohm</h1>
-
-    <div class="card">
-      <div>Tension U : <span id="uTxt" class="value">0.0</span> V</div>
-      <input id="uRange" type="range" min="0" max="10" step="0.1" value="0">
-    </div>
-
-    <div class="card">
-      Résistance R :
-      <select id="rSelect">
-        <option>10</option>
-        <option>33</option>
-        <option>47</option>
-        <option>68</option>
-        <option selected>100</option>
-        <option>220</option>
-        <option>330</option>
-        <option>470</option>
-      </select>
-    </div>
-
-    <div class="card">
-      Calibre Voltmètre :
-      <select id="vRangeSel">
-        <option value="0.2">200 mV</option>
-        <option value="2">2 V</option>
-        <option value="20" selected>20 V</option>
-      </select>
-    </div>
-
-    <div class="card">
-      Calibre Ampèremètre :
-      <select id="aRangeSel">
-        <option value="0.002">2 mA</option>
-        <option value="0.02">20 mA</option>
-        <option value="0.2" selected>200 mA</option>
-        <option value="10">10 A</option>
-      </select>
-    </div>
-
-    <div class="card">
-      Intensité I : <span id="iTxt" class="value">0.0</span> <span id="iUnit">mA</span>
-    </div>
-
-    <button id="resetBtn">Reset</button>
-  </div>
-
-</div>
-
-<script src="app.js?v=1"></script>
+  <!-- Versioning anti-cache -->
+  <script src="app.js?v=1"></script>
 </body>
 </html>
