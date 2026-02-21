@@ -31,21 +31,21 @@
 
   // ====== IMAGES ======
   const bg = new Image();
-  bg.src = "fond.jpg?v=3001";
+  bg.src = "fond.jpg?v=3002";
   bg.onload = () => { state.bgOk = true; draw(); };
   bg.onerror = () => { state.bgOk = false; draw(); };
 
   const imgVolt = new Image();
-  imgVolt.src = "voltmetre.png?v=3001";
+  imgVolt.src = "voltmetre.png?v=3002";
 
   const imgA2A = new Image();
-  imgA2A.src = "amperemetre_2A.png?v=3001";
+  imgA2A.src = "amperemetre_2A.png?v=3002";
 
   const imgAmA = new Image();
-  imgAmA.src = "amperemetre_mA.png?v=3001";
+  imgAmA.src = "amperemetre_mA.png?v=3002";
 
   const imgAuA = new Image();
-  imgAuA.src = "amperemetre_microA.png?v=3001";
+  imgAuA.src = "amperemetre_microA.png?v=3002";
 
   // ====== ALIGNEMENT PAR "ZONE UTILE" (bbox alpha) ======
   const SRC = {
@@ -85,26 +85,24 @@
     return { x: offX, y: offY, w: fitW, h: fitH };
   }
 
-  // ====== HOTSPOTS (zones plus petites + recalées) ======
-  // On les définit RELATIVEMENT au rectangle du multimètre (DST),
-  // puis on ajuste finement via les coefficients ci-dessous.
+  // ====== HOTSPOTS (recalés) ======
+  // Objectif : coller aux marquages sur les cadrans (plus haut qu’avant).
   function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
-        // symbole V⎓ (petite zone sur le "V" en bas à gauche)
-        v_vdc: { x: m.x + 0.055 * m.w, y: m.y + 0.615 * m.h, w: 0.090 * m.w, h: 0.115 * m.h },
-        // OFF (petite zone)
-        v_off: { x: m.x + 0.205 * m.w, y: m.y + 0.785 * m.h, w: 0.090 * m.w, h: 0.085 * m.h }
+        // symbole V⎓ : remonte + recentré sur le marquage V
+        v_vdc: { x: m.x + 0.060 * m.w, y: m.y + 0.430 * m.h, w: 0.085 * m.w, h: 0.120 * m.h },
+        // OFF : remonte (zone plus petite)
+        v_off: { x: m.x + 0.105 * m.w, y: m.y + 0.610 * m.h, w: 0.095 * m.w, h: 0.100 * m.h }
       };
     }
     return {
-      // colonne de droite (3 calibres) : zones plus étroites et un peu plus à droite
-      // NOTE: on garde la géométrie, et on intervertit l'EFFET 2A/µA dans le click handler (demande #4)
-      a_2a: { x: m.x + 0.845 * m.w, y: m.y + 0.500 * m.h, w: 0.105 * m.w, h: 0.095 * m.h },
-      a_ma: { x: m.x + 0.845 * m.w, y: m.y + 0.600 * m.h, w: 0.105 * m.w, h: 0.095 * m.h },
-      a_ua: { x: m.x + 0.845 * m.w, y: m.y + 0.700 * m.h, w: 0.105 * m.w, h: 0.095 * m.h },
-      // OFF (petit)
-      a_off:{ x: m.x + 0.300 * m.w, y: m.y + 0.800 * m.h, w: 0.100 * m.w, h: 0.085 * m.h }
+      // colonne de droite (3 calibres) : remonte nettement
+      a_2a: { x: m.x + 0.835 * m.w, y: m.y + 0.360 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
+      a_ma: { x: m.x + 0.835 * m.w, y: m.y + 0.455 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
+      a_ua: { x: m.x + 0.835 * m.w, y: m.y + 0.550 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
+      // OFF (petit) : remonte aussi
+      a_off:{ x: m.x + 0.210 * m.w, y: m.y + 0.610 * m.h, w: 0.110 * m.w, h: 0.095 * m.h }
     };
   }
 
@@ -116,10 +114,11 @@
     ctx.restore();
   }
 
-  // ====== LCD (texte) — descendu pour tomber dans l'écran LCD ======
+  // ====== LCD (texte) — DESCENDU dans l’écran LCD ======
+  // (avant : trop haut, sur le fond blanc)
   const LCD_POS = {
-    volt: { x: 0.105, y: 0.165 },
-    amp:  { x: 0.725, y: 0.165 }
+    volt: { x: 0.105, y: 0.235 },
+    amp:  { x: 0.725, y: 0.235 }
   };
 
   function readVoltText() {
@@ -151,6 +150,8 @@
     ctx.save();
     ctx.fillStyle = "black";
     ctx.font = "bold 40px monospace";
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
 
     const vt = readVoltText();
     const at = readAmpText();
@@ -164,7 +165,7 @@
   // ====== UI ======
   function buildResButtons() {
     resGrid.innerHTML = "";
-    RES_VALUES.forEach(r => {
+    RES_VALUES.forEach((r) => {
       const b = document.createElement("button");
       b.className = "btn";
       b.textContent = `${r} Ω`;
@@ -181,7 +182,7 @@
   }
 
   function setActive(R) {
-    [...resGrid.querySelectorAll("button")].forEach(b => {
+    [...resGrid.querySelectorAll("button")].forEach((b) => {
       b.classList.toggle("active", Number(b.dataset.r) === R);
     });
   }
@@ -258,6 +259,8 @@
     if (!HOT) return;
 
     const p = normPos(e);
+    console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3));
+
     const x = p.x * canvas.width;
     const y = p.y * canvas.height;
 
@@ -274,9 +277,7 @@
       return;
     }
 
-    // ✅ Demande #4 : intervertir l'effet des clics 2A et µA
-    // - clic sur zone "a_2a" => µA
-    // - clic sur zone "a_ua" => 2A
+    // interversion conservée (OK chez vous)
     if (inRect(x, y, HOT.a_2a)) {
       state.aMode = "uA";
       status.textContent = "Ampèremètre : µA sélectionné.";
