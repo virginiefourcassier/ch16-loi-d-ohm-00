@@ -1,3 +1,4 @@
+/* app.js (corrigé : zone V du voltmètre centrée sur 0.037 0.557, hauteur /2) */
 (() => {
   "use strict";
 
@@ -85,13 +86,13 @@
     return { x: offX, y: offY, w: fitW, h: fitH };
   }
 
-  // ====== HOTSPOTS (définition) ======
+  // ====== HOTSPOTS (base) ======
   function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
         // V⎓
         v_vdc: { x: m.x + 0.060 * m.w, y: m.y + 0.430 * m.h, w: 0.085 * m.w, h: 0.120 * m.h },
-        // OFF (sera remplacé par un hotspot centré sur coord. demandée)
+        // OFF
         v_off: { x: m.x + 0.105 * m.w, y: m.y + 0.610 * m.h, w: 0.095 * m.w, h: 0.100 * m.h }
       };
     }
@@ -99,7 +100,6 @@
       a_2a: { x: m.x + 0.835 * m.w, y: m.y + 0.360 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
       a_ma: { x: m.x + 0.835 * m.w, y: m.y + 0.455 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
       a_ua: { x: m.x + 0.835 * m.w, y: m.y + 0.550 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
-      // OFF (sera remplacé par un hotspot centré sur coord. demandée)
       a_off:{ x: m.x + 0.210 * m.w, y: m.y + 0.610 * m.h, w: 0.110 * m.w, h: 0.095 * m.h }
     };
   }
@@ -136,13 +136,6 @@
     return "";
   }
 
-  // Positions LCD (ajustables facilement)
-  const LCD = {
-    // (demande: gauche descendre un peu, droite descendre plus + décale droite un peu)
-    volt: { x: 0.102, y: 0.295 }, // centre texte
-    amp:  { x: 0.900, y: 0.298 }  // centre texte
-  };
-
   function drawLCDText() {
     ctx.save();
     ctx.fillStyle = "black";
@@ -153,8 +146,9 @@
     const vt = readVoltText();
     const at = readAmpText();
 
-    if (vt) ctx.fillText(vt, LCD.volt.x * canvas.width, LCD.volt.y * canvas.height);
-    if (at) ctx.fillText(at, LCD.amp.x * canvas.width, LCD.amp.y * canvas.height);
+    // (positions actuelles de l’affichage LCD — on ne touche pas ici)
+    if (vt) ctx.fillText(vt, 0.102 * canvas.width, 0.295 * canvas.height);
+    if (at) ctx.fillText(at, 0.900 * canvas.width, 0.298 * canvas.height);
 
     ctx.restore();
   }
@@ -185,8 +179,7 @@
   }
 
   function sync() {
-    // ✅ corrige erreur #1 : U doit être recalculée à partir du slider (0→12)
-    state.U = clamp(parseFloat(uRange.value || "0"), 0, parseFloat(uRange.max || "12"));
+    state.U = clamp(parseFloat(uRange.value || "0"), 0, 12);
     uTxt.textContent = state.U.toFixed(1);
     rTxt.textContent = String(state.R);
     iIdeal.textContent = (I_phys(state.U, state.R) * 1000).toFixed(1);
@@ -199,7 +192,6 @@
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     if (!state.bgOk) {
-      // fond manquant => affiche au moins un écran informatif (évite "vide" silencieux)
       ctx.fillStyle = "#0f1730";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "rgba(255,77,109,.95)";
@@ -219,40 +211,36 @@
     if (state.aMode === "2A") { imgA = imgA2A; srcA = SRC.a2a; }
     if (state.aMode === "mA") { imgA = imgAmA; srcA = SRC.ama; }
     if (state.aMode === "uA") { imgA = imgAuA; srcA = SRC.aua; }
+
     if (imgA && srcA) {
       drawOverlayAligned(imgA, srcA, DST.amp);
     }
 
-    // hotspots base
+    // hotspots (base)
     const hv = hotFromMeterBox(DST.volt, "volt");
     const ha = hotFromMeterBox(DST.amp, "amp");
     HOT = { ...hv, ...ha };
 
-    // ✅ correction erreur #3 : remettre TOUTES les zones de clic (volt + amp)
-    // 1) Voltmètre OFF centré sur CLICK 0.054 0.642, hauteur ÷2
+    // ✅ 1) Zone V⎓ centrée sur CLICK canvas 0.037 0.557
+    // ✅ 2) Hauteur divisée par 2
     {
-      const cx = 0.054 * canvas.width;
-      const cy = 0.642 * canvas.height;
-      const w = 0.095 * DST.volt.w;
-      const h = (0.100 * DST.volt.h) / 2; // hauteur divisée par 2
-      HOT.v_off = { x: cx - w / 2, y: cy - h / 2, w, h };
+      const cx = 0.037 * canvas.width;
+      const cy = 0.557 * canvas.height;
+
+      const w = HOT.v_vdc.w;          // on garde la largeur actuelle
+      const h = HOT.v_vdc.h / 2;      // hauteur /2
+
+      HOT.v_vdc = {
+        x: cx - w / 2,
+        y: cy - h / 2,
+        w,
+        h
+      };
     }
 
-    // 2) Ampèremètre OFF centré sur CLICK 0.842 0.631 (taille conservée)
-    {
-      const cx = 0.842 * canvas.width;
-      const cy = 0.631 * canvas.height;
-      const w = 0.110 * DST.amp.w;
-      const h = 0.095 * DST.amp.h;
-      HOT.a_off = { x: cx - w / 2, y: cy - h / 2, w, h };
-    }
-
-    // texte LCD
     drawLCDText();
 
-    // ✅ correction erreur #2 : bouton "Zones" doit afficher les rectangles
     if (state.showHotspots && HOT) {
-      // couleurs différenciées
       drawHotRect(HOT.v_vdc, "yellow");
       drawHotRect(HOT.v_off, "yellow");
       drawHotRect(HOT.a_2a, "cyan");
@@ -279,11 +267,10 @@
     if (!HOT) return;
 
     const p = normPos(e);
+    console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3));
+
     const x = p.x * canvas.width;
     const y = p.y * canvas.height;
-
-    // debug (si besoin)
-    // console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3));
 
     // Voltmètre
     if (inRect(x, y, HOT.v_vdc)) {
