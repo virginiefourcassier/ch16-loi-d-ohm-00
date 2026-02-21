@@ -1,77 +1,131 @@
 (() => {
   "use strict";
 
-  const canvas = document.getElementById("c");
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("c");
   const ctx = canvas.getContext("2d");
-  const status = document.getElementById("status"); // on affiche aussi les coords ici si présent
+
+  const uRange = $("uRange");
+  const uTxt = $("uTxt");
+  const rTxt = $("rTxt");
+  const resGrid = $("resGrid");
+  const iIdeal = $("iIdeal");
+  const status = $("status");
+  const resetBtn = $("resetBtn");
+  const showHotBtn = $("showHotBtn");
+
+  const RES_VALUES = [10, 33, 47, 68, 100, 220, 330, 470];
+
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const I_phys = (U, R) => (R > 0 ? U / R : 0);
+
+  const state = {
+    U: parseFloat(uRange.value || "0"),
+    R: 100,
+    vMode: "OFF",
+    aMode: "OFF",
+    bgOk: false
+  };
 
   const bg = new Image();
-  bg.src = "fond.jpg?v=11";
+  bg.src = "fond.jpg?v=12";
+  bg.onload = () => { state.bgOk = true; draw(); };
 
-  let ready = false;
+  const imgVolt = new Image();
+  imgVolt.src = "voltmetre.png?v=12";
 
-  function drawLabel(x, y) {
-    const txt = `x:${x}  y:${y}`;
+  const imgA2A = new Image();
+  imgA2A.src = "amperemetre_2A.png?v=12";
 
-    ctx.save();
+  const imgAmA = new Image();
+  imgAmA.src = "amperemetre_mA.png?v=12";
 
-    // repère
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(x, y, 5, 0, Math.PI * 2);
-    ctx.fill();
+  const imgAuA = new Image();
+  imgAuA.src = "amperemetre_microA.png?v=12";
 
-    // étiquette lisible sur fond clair (boîte noire + texte blanc)
-    ctx.font = "bold 26px monospace";
-    const padX = 12;
-    const padY = 8;
-    const w = ctx.measureText(txt).width;
-    const boxW = w + 2 * padX;
-    const boxH = 26 + 2 * padY;
+  // === POSITIONS EXACTES (en pixels réels 1280x720) ===
 
-    // position de la boîte (évite de sortir du canvas)
-    let bx = x + 12;
-    let by = y - boxH - 12;
-    if (bx + boxW > canvas.width) bx = x - boxW - 12;
-    if (by < 0) by = y + 12;
+  const LEFT = { x: 5, y: 110, w: 264, h: 555 };
+  const RIGHT = { x: 1009, y: 109, w: 263, h: 556 };
 
-    ctx.fillStyle = "rgba(0,0,0,0.72)";
-    ctx.fillRect(bx, by, boxW, boxH);
-
-    ctx.fillStyle = "white";
-    ctx.textBaseline = "top";
-    ctx.fillText(txt, bx + padX, by + padY);
-
-    ctx.restore();
+  function buildResButtons() {
+    resGrid.innerHTML = "";
+    RES_VALUES.forEach(r => {
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = `${r} Ω`;
+      b.dataset.r = String(r);
+      b.onclick = () => {
+        state.R = r;
+        setActive(r);
+        sync();
+        draw();
+      };
+      resGrid.appendChild(b);
+    });
+    setActive(state.R);
   }
 
-  function render(x, y) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-    drawLabel(x, y);
+  function setActive(R) {
+    [...resGrid.querySelectorAll("button")].forEach(b => {
+      b.classList.toggle("active", Number(b.dataset.r) === R);
+    });
+  }
 
-    if (status) {
-      status.textContent = `Coordonnées souris (pixels sur 1280×720) : x=${x} ; y=${y}`;
+  function sync() {
+    state.U = clamp(parseFloat(uRange.value || "0"), 0, 10);
+    uTxt.textContent = state.U.toFixed(1);
+    rTxt.textContent = String(state.R);
+    iIdeal.textContent = (I_phys(state.U, state.R) * 1000).toFixed(1);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (state.bgOk) ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+    if (state.vMode === "VDC") {
+      ctx.drawImage(imgVolt, LEFT.x, LEFT.y, LEFT.w, LEFT.h);
+    }
+
+    let img = null;
+    if (state.aMode === "2A") img = imgA2A;
+    if (state.aMode === "mA") img = imgAmA;
+    if (state.aMode === "uA") img = imgAuA;
+
+    if (img) {
+      ctx.drawImage(img, RIGHT.x, RIGHT.y, RIGHT.w, RIGHT.h);
     }
   }
 
-  bg.onload = () => {
-    ready = true;
-    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-    if (status) status.textContent = "Mode mesure actif : survole l’image pour afficher x,y.";
-  };
+  function inRect(px, py, r) {
+    return px >= r.x && px <= r.x + r.w &&
+           py >= r.y && py <= r.y + r.h;
+  }
 
-  bg.onerror = () => {
-    if (status) status.textContent = "Erreur : fond.jpg non chargé.";
-  };
-
-  canvas.addEventListener("mousemove", (e) => {
-    if (!ready) return;
-
+  canvas.addEventListener("click", (e) => {
     const rect = canvas.getBoundingClientRect();
     const x = Math.round(((e.clientX - rect.left) / rect.width) * canvas.width);
     const y = Math.round(((e.clientY - rect.top) / rect.height) * canvas.height);
 
-    render(x, y);
+    if (inRect(x, y, LEFT)) state.vMode = "VDC";
+    if (inRect(x, y, RIGHT)) state.aMode = "mA";
+
+    draw();
   });
+
+  uRange.addEventListener("input", () => { sync(); draw(); });
+
+  resetBtn.onclick = () => {
+    state.U = 3;
+    state.R = 100;
+    state.vMode = "OFF";
+    state.aMode = "OFF";
+    uRange.value = "3";
+    sync();
+    draw();
+  };
+
+  buildResButtons();
+  sync();
+  draw();
 })();
