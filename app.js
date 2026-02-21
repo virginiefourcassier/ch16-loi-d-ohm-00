@@ -86,14 +86,14 @@
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ✅ CADRE JAUNE DE TEST
-    ctx.strokeStyle = "yellow";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-
     if (state.bgOk) {
       ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
     }
+
+    // ✅ CADRE JAUNE DE TEST (visible)
+    ctx.strokeStyle = "yellow";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(0, 0, canvas.width, canvas.height);
 
     if (state.vMode === "VDC") {
       ctx.drawImage(
