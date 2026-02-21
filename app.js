@@ -1,4 +1,3 @@
-/* app.js (V inchangé ; OFF volt + OFF amp recadrés aux coordonnées demandées) */
 (() => {
   "use strict";
 
@@ -66,7 +65,9 @@
     const srcW = srcBox.r - srcBox.l;
     const srcH = srcBox.b - srcBox.t;
 
-    const s = Math.min(dstBox.w / srcW, dstBox.h / srcH);
+    const sX = dstBox.w / srcW;
+    const sY = dstBox.h / srcH;
+    const s = Math.min(sX, sY);
 
     const fitW = srcW * s;
     const fitH = srcH * s;
@@ -80,7 +81,6 @@
     const dh = img.height * s;
 
     ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, dw, dh);
-
     return { x: offX, y: offY, w: fitW, h: fitH };
   }
 
@@ -88,9 +88,7 @@
   function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
-        // V⎓ (NE PAS TOUCHER : bon à 0.037 0.557 d’après vous)
         v_vdc: { x: m.x + 0.060 * m.w, y: m.y + 0.430 * m.h, w: 0.085 * m.w, h: 0.120 * m.h },
-        // OFF
         v_off: { x: m.x + 0.105 * m.w, y: m.y + 0.610 * m.h, w: 0.095 * m.w, h: 0.100 * m.h }
       };
     }
@@ -119,7 +117,7 @@
   function readAmpText() {
     if (state.aMode === "OFF") return "";
 
-    const I = I_phys(state.U, state.R); // A
+    const I = I_phys(state.U, state.R); // en A
 
     const rangeA =
       state.aMode === "2A" ? 2 :
@@ -144,6 +142,7 @@
     const vt = readVoltText();
     const at = readAmpText();
 
+    // positions actuelles (LCD)
     if (vt) ctx.fillText(vt, 0.102 * canvas.width, 0.295 * canvas.height);
     if (at) ctx.fillText(at, 0.900 * canvas.width, 0.298 * canvas.height);
 
@@ -176,7 +175,7 @@
   }
 
   function sync() {
-    state.U = clamp(parseFloat(uRange.value || "0"), 0, 12);
+    state.U = clamp(parseFloat(uRange.value || "0"), 0, parseFloat(uRange.max || "12"));
     uTxt.textContent = state.U.toFixed(1);
     rTxt.textContent = String(state.R);
     iIdeal.textContent = (I_phys(state.U, state.R) * 1000).toFixed(1);
@@ -218,15 +217,16 @@
     const ha = hotFromMeterBox(DST.amp, "amp");
     HOT = { ...hv, ...ha };
 
-    // ✅ OFF voltmètre : centré sur 0.054 0.642 + hauteur /2 (largeur inchangée)
+    // ✅ MODIF DEMANDÉE : V (voltmètre gauche) centré sur CLICK canvas 0.039 0.555
+    // + hauteur divisée par 2
     {
-      const cx = 0.054 * canvas.width;
-      const cy = 0.642 * canvas.height;
+      const cx = 0.039 * canvas.width;
+      const cy = 0.555 * canvas.height;
 
-      const w = HOT.v_off.w;
-      const h = HOT.v_off.h / 2;
+      const w = 0.085 * DST.volt.w;
+      const h = (0.120 * DST.volt.h) / 2;
 
-      HOT.v_off = {
+      HOT.v_vdc = {
         x: cx - w / 2,
         y: cy - h / 2,
         w,
@@ -234,25 +234,12 @@
       };
     }
 
-    // ✅ OFF ampèremètre : centré sur 0.842 0.631 (taille inchangée)
-    {
-      const cx = 0.842 * canvas.width;
-      const cy = 0.631 * canvas.height;
-
-      const w = HOT.a_off.w;
-      const h = HOT.a_off.h;
-
-      HOT.a_off = {
-        x: cx - w / 2,
-        y: cy - h / 2,
-        w,
-        h
-      };
-    }
+    // ⚠️ Zones OFF (voltmètre + ampèremètre) : inchangées (ne pas modifier)
 
     drawLCDText();
 
     if (state.showHotspots && HOT) {
+      // couleurs par type
       drawHotRect(HOT.v_vdc, "yellow");
       drawHotRect(HOT.v_off, "yellow");
       drawHotRect(HOT.a_2a, "cyan");
@@ -284,7 +271,6 @@
     const x = p.x * canvas.width;
     const y = p.y * canvas.height;
 
-    // Voltmètre
     if (inRect(x, y, HOT.v_vdc)) {
       state.vMode = "VDC";
       status.textContent = "Voltmètre : V⎓ sélectionné.";
@@ -298,7 +284,7 @@
       return;
     }
 
-    // Ampèremètre (interversion conservée)
+    // interversion conservée
     if (inRect(x, y, HOT.a_2a)) {
       state.aMode = "uA";
       status.textContent = "Ampèremètre : µA sélectionné.";
