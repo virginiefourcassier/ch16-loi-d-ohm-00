@@ -109,22 +109,24 @@
     ctx.restore();
   }
 
-  // ====== LCD (texte) — centré dans l'écran gris ======
-  // Boîte LCD relative AU MULTIMÈTRE (DST.*) : à ajuster si besoin.
-  // x/y = coin haut-gauche ; w/h = taille (en fraction du multimètre).
+  // ====== LCD (texte) — réglages demandés ======
+  // Boîte LCD (dans chaque multimètre)
   const LCD_BOX_FRAC = {
     volt: { x: 0.13, y: 0.055, w: 0.74, h: 0.16 },
     amp:  { x: 0.13, y: 0.055, w: 0.74, h: 0.16 }
   };
 
-  // Décalage "extérieur" (en fraction de la largeur du multimètre)
+  // Décalage vers l'extérieur
   const LCD_OUT_SHIFT = {
-    volt: -0.020, // vers la gauche
-    amp:  +0.020  // vers la droite
+    volt: -0.020, // gauche
+    amp:  +0.030  // droite (un peu plus à droite que le gauche)
   };
 
-  // Remontée globale (en fraction de la hauteur du multimètre)
-  const LCD_UP_SHIFT = -0.010; // un peu plus haut
+  // Décalage vertical global (positif = descend)
+  const LCD_Y_SHIFT = {
+    volt: +0.014, // gauche : descendre un peu
+    amp:  +0.022  // droite : descendre un peu plus
+  };
 
   function readVoltText() {
     if (state.vMode !== "VDC") return "";
@@ -143,15 +145,9 @@
 
     if (I > rangeA + 1e-12) return "ERREUR";
 
-    if (state.aMode === "2A") {
-      return I.toFixed(2) + " A";
-    }
-    if (state.aMode === "mA") {
-      return (I * 1000).toFixed(1) + " mA";
-    }
-    if (state.aMode === "uA") {
-      return (I * 1_000_000).toFixed(0) + " µA";
-    }
+    if (state.aMode === "2A")  return I.toFixed(2) + " A";
+    if (state.aMode === "mA")  return (I * 1000).toFixed(1) + " mA";
+    if (state.aMode === "uA")  return (I * 1_000_000).toFixed(0) + " µA";
     return "";
   }
 
@@ -165,28 +161,27 @@
     ctx.textBaseline = "middle";
     ctx.textAlign = "center";
 
-    // Taille de police proportionnelle à la hauteur de l'écran LCD
-    // (on la calcule sur le volt, quasi identique à l'amp)
+    // ✅ Taille réduite (avant 0.55)
     const lcdV = LCD_BOX_FRAC.volt;
     const lcdHpx = lcdV.h * DST.volt.h;
-    const fontPx = Math.round(lcdHpx * 0.55);
+    const fontPx = Math.round(lcdHpx * 0.45);
     ctx.font = `bold ${fontPx}px monospace`;
 
-    // Voltmètre
+    // Voltmètre (gauche)
     if (vt) {
       const m = DST.volt;
       const b = LCD_BOX_FRAC.volt;
       const cx = m.x + (b.x + b.w / 2) * m.w + LCD_OUT_SHIFT.volt * m.w;
-      const cy = m.y + (b.y + b.h / 2) * m.h + LCD_UP_SHIFT * m.h;
+      const cy = m.y + (b.y + b.h / 2) * m.h + LCD_Y_SHIFT.volt * m.h;
       ctx.fillText(vt, cx, cy);
     }
 
-    // Ampèremètre
+    // Ampèremètre (droite)
     if (at) {
       const m = DST.amp;
       const b = LCD_BOX_FRAC.amp;
       const cx = m.x + (b.x + b.w / 2) * m.w + LCD_OUT_SHIFT.amp * m.w;
-      const cy = m.y + (b.y + b.h / 2) * m.h + LCD_UP_SHIFT * m.h;
+      const cy = m.y + (b.y + b.h / 2) * m.h + LCD_Y_SHIFT.amp * m.h;
       ctx.fillText(at, cx, cy);
     }
 
