@@ -1,3 +1,4 @@
+window.addEventListener("DOMContentLoaded", () => {
 function readVoltText() {
   if (state.vMode !== "VDC") return "";
   return state.U.toFixed(2) + " V";
@@ -30,3 +31,4 @@ function readAmpText() {
 
   return "";
 }
+});
