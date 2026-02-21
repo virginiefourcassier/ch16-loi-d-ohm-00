@@ -109,13 +109,13 @@
     ctx.restore();
   }
 
-  // ====== LCD (texte) — position + taille ======
-  // demandés :
-  // - gauche : descendre un peu
-  // - droite : descendre plus + décaler vers la droite
-  const LCD_POS = {
-    volt: { x: 0.095, y: 0.258 }, // un peu + bas (y ↑) et un peu vers l’extérieur (x ↓)
-    amp:  { x: 0.755, y: 0.272 }  // plus bas + un peu plus à droite
+  // ====== LCD (texte) — coordonnées CALIBRÉES ======
+  // Tes mesures :
+  // centre écran gauche : 0.102 0.289  → on descend un peu : y=0.295
+  // centre écran droit  : 0.886 0.286  → on descend plus + on décale à droite : x=0.900, y=0.305
+  const LCD_CENTER = {
+    volt: { x: 0.102, y: 0.295 },
+    amp:  { x: 0.900, y: 0.305 }
   };
 
   function readVoltText() {
@@ -150,15 +150,15 @@
   function drawLCDText() {
     ctx.save();
     ctx.fillStyle = "black";
-    ctx.font = "bold 32px monospace"; // ✅ plus petit
+    ctx.font = "bold 30px monospace"; // taille réduite
     ctx.textBaseline = "middle";
-    ctx.textAlign = "left";
+    ctx.textAlign = "center"; // centre sur LCD_CENTER
 
     const vt = readVoltText();
     const at = readAmpText();
 
-    if (vt) ctx.fillText(vt, LCD_POS.volt.x * canvas.width, LCD_POS.volt.y * canvas.height);
-    if (at) ctx.fillText(at, LCD_POS.amp.x * canvas.width, LCD_POS.amp.y * canvas.height);
+    if (vt) ctx.fillText(vt, LCD_CENTER.volt.x * canvas.width, LCD_CENTER.volt.y * canvas.height);
+    if (at) ctx.fillText(at, LCD_CENTER.amp.x * canvas.width, LCD_CENTER.amp.y * canvas.height);
 
     ctx.restore();
   }
