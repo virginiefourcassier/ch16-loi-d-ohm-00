@@ -24,10 +24,7 @@
     U: parseFloat(uRange.value || "0"),
     R: 100,
 
-    // voltmètre
     vMode: "OFF", // "OFF" | "VDC"
-
-    // ampèremètre
     aMode: "OFF", // "OFF" | "2A" | "mA" | "uA"
 
     showHotspots: false,
@@ -36,50 +33,93 @@
 
   // ====== IMAGES ======
   const bg = new Image();
-  bg.src = "fond.jpg?v=6";
+  bg.src = "fond.jpg?v=7";
   bg.onload = () => { state.bgOk = true; draw(); };
   bg.onerror = () => { state.bgOk = false; draw(); };
 
-  // Images "positions" (superposées uniquement après clic)
   const imgVolt = new Image();
-  imgVolt.src = "voltmetre.png?v=1";
+  imgVolt.src = "voltmetre.png?v=7";
 
   const imgA2A = new Image();
-  imgA2A.src = "amperemetre_2A.png?v=1";
+  imgA2A.src = "amperemetre_2A.png?v=7";
 
   const imgAmA = new Image();
-  imgAmA.src = "amperemetre_mA.png?v=1";
+  imgAmA.src = "amperemetre_mA.png?v=7";
 
   const imgAuA = new Image();
-  imgAuA.src = "amperemetre_microA.png?v=1";
+  imgAuA.src = "amperemetre_microA.png?v=7";
 
-// ====== PLACEMENT DES OVERLAYS (ajustement fin) ======
-const OVER = {
-  // Voltmètre : plus étroit, un peu plus à gauche et un peu plus bas
-  volt: { x: 0.010, y: 0.150, w: 0.300, h: 0.800 },
+  // ============================================================
+  // OVERLAYS ✅
+  // Demande utilisateur : agrandir légèrement + descendre un peu,
+  // et chaque multimètre vers son bord extérieur.
+  // + voltmètre : plus étroit ; ampèremètre : un peu plus à droite/bas
+  // ============================================================
+  const OVER = {
+    // gauche : un peu plus vers la gauche, un peu plus bas, légèrement agrandi
+    // et un poil moins large (voltmètre "plus étroit")
+    volt: { x: 0.000, y: 0.145, w: 0.295, h: 0.835 },
 
-  // Ampèremètre : un peu plus à droite et un peu plus bas
-  amp:  { x: 0.690, y: 0.155, w: 0.335, h: 0.800 }
-};
-
-// ====== HOTSPOTS (corrigé) ======
-const HOT = {
-  // Voltmètre gauche : zones décalées vers la gauche + bas
-  v_vdc: { x: 0.045, y: 0.415, w: 0.225, h: 0.195 },
-  v_off: { x: 0.060, y: 0.640, w: 0.160, h: 0.120 },
-
-  // Ampèremètre droit : zones décalées vers la droite + bas
-  a_2a:  { x: 0.745, y: 0.430, w: 0.200, h: 0.120 },
-  a_ma:  { x: 0.745, y: 0.555, w: 0.200, h: 0.120 },
-  a_ua:  { x: 0.745, y: 0.680, w: 0.200, h: 0.120 },
-  a_off: { x: 0.705, y: 0.640, w: 0.160, h: 0.120 }
-};
-
-  // ====== LCD (texte superposé) ======
-  const LCD_POS = {
-    volt: { x: 0.12, y: 0.23 }, // en fraction
-    amp:  { x: 0.72, y: 0.23 }
+    // droite : un peu plus vers la droite, un peu plus bas, légèrement agrandi
+    amp:  { x: 0.710, y: 0.148, w: 0.345, h: 0.835 }
   };
+
+  // ============================================================
+  // HOTSPOTS ✅ (RELATIFS aux overlays)
+  // => si tu touches OVER, les zones suivent automatiquement.
+  // Les rectangles ci-dessous sont en "coordonnées relatives overlay".
+  // ============================================================
+
+  const HOT_REL = {
+    // --- Voltmètre (gauche) ---
+    // zone V⎓ : arc bas-gauche du sélecteur (assez large pour clic facile)
+    v_vdc: { x: 0.18, y: 0.42, w: 0.64, h: 0.22 },
+    // zone OFF : bas-gauche, proche "OFF"
+    v_off: { x: 0.20, y: 0.64, w: 0.42, h: 0.16 },
+
+    // --- Ampèremètre (droite) ---
+    // 2A (en haut à droite de l’arc)
+    a_2a:  { x: 0.56, y: 0.40, w: 0.36, h: 0.15 },
+    // mA (milieu droite)
+    a_ma:  { x: 0.56, y: 0.52, w: 0.36, h: 0.15 },
+    // µA (bas droite)
+    a_ua:  { x: 0.56, y: 0.64, w: 0.36, h: 0.15 },
+    // OFF (bas-gauche)
+    a_off: { x: 0.20, y: 0.64, w: 0.40, h: 0.16 }
+  };
+
+  function relToAbs(box, r) {
+    return {
+      x: box.x + r.x * box.w,
+      y: box.y + r.y * box.h,
+      w: r.w * box.w,
+      h: r.h * box.h
+    };
+  }
+
+  function HOT() {
+    return {
+      v_vdc: relToAbs(OVER.volt, HOT_REL.v_vdc),
+      v_off: relToAbs(OVER.volt, HOT_REL.v_off),
+
+      a_2a:  relToAbs(OVER.amp,  HOT_REL.a_2a),
+      a_ma:  relToAbs(OVER.amp,  HOT_REL.a_ma),
+      a_ua:  relToAbs(OVER.amp,  HOT_REL.a_ua),
+      a_off: relToAbs(OVER.amp,  HOT_REL.a_off)
+    };
+  }
+
+  // ====== LCD (texte) : on le place aussi RELATIF aux overlays ======
+  const LCD_REL = {
+    volt: { x: 0.28, y: 0.10 }, // écran en haut
+    amp:  { x: 0.28, y: 0.10 }
+  };
+
+  function lcdAbs(which) {
+    const box = which === "volt" ? OVER.volt : OVER.amp;
+    const r = which === "volt" ? LCD_REL.volt : LCD_REL.amp;
+    return { x: (box.x + r.x * box.w), y: (box.y + r.y * box.h) };
+  }
 
   // ====== UI ======
   function buildResButtons() {
@@ -91,10 +131,18 @@ const HOT = {
       b.dataset.r = String(r);
       b.onclick = () => {
         state.R = r;
+        setActive(r);
         sync();
         draw();
       };
       resGrid.appendChild(b);
+    });
+    setActive(state.R);
+  }
+
+  function setActive(R) {
+    [...resGrid.querySelectorAll("button")].forEach(b => {
+      b.classList.toggle("active", Number(b.dataset.r) === R);
     });
   }
 
@@ -118,15 +166,13 @@ const HOT = {
 
     const I = I_phys(state.U, state.R); // A
 
-    // calibres max (A)
     const rangeA =
       state.aMode === "2A" ? 2 :
       state.aMode === "mA" ? 0.2 :
-      0.02; // "uA" = plus petit calibre (20 mA)
+      0.02;
 
     if (I > rangeA + 1e-12) return "ERREUR";
 
-    // précision : 2A = moins précis
     const decimals =
       state.aMode === "2A" ? 0 :
       state.aMode === "mA" ? 1 :
@@ -150,7 +196,6 @@ const HOT = {
   }
 
   function drawOverlays() {
-    // voltmètre
     if (state.vMode === "VDC") {
       ctx.drawImage(
         imgVolt,
@@ -161,7 +206,6 @@ const HOT = {
       );
     }
 
-    // ampèremètre
     let img = null;
     if (state.aMode === "2A") img = imgA2A;
     if (state.aMode === "mA") img = imgAmA;
@@ -187,18 +231,12 @@ const HOT = {
     const at = readAmpText();
 
     if (vt) {
-      ctx.fillText(
-        vt,
-        LCD_POS.volt.x * canvas.width,
-        LCD_POS.volt.y * canvas.height
-      );
+      const p = lcdAbs("volt");
+      ctx.fillText(vt, p.x * canvas.width, p.y * canvas.height);
     }
     if (at) {
-      ctx.fillText(
-        at,
-        LCD_POS.amp.x * canvas.width,
-        LCD_POS.amp.y * canvas.height
-      );
+      const p = lcdAbs("amp");
+      ctx.fillText(at, p.x * canvas.width, p.y * canvas.height);
     }
     ctx.restore();
   }
@@ -220,13 +258,14 @@ const HOT = {
     drawLCDText();
 
     if (state.showHotspots) {
-      drawHotRect(HOT.v_vdc, "lime");
-      drawHotRect(HOT.v_off, "lime");
+      const h = HOT();
+      drawHotRect(h.v_vdc, "lime");
+      drawHotRect(h.v_off, "lime");
 
-      drawHotRect(HOT.a_2a, "cyan");
-      drawHotRect(HOT.a_ma, "cyan");
-      drawHotRect(HOT.a_ua, "cyan");
-      drawHotRect(HOT.a_off, "cyan");
+      drawHotRect(h.a_2a, "cyan");
+      drawHotRect(h.a_ma, "cyan");
+      drawHotRect(h.a_ua, "cyan");
+      drawHotRect(h.a_off, "cyan");
     }
   }
 
@@ -244,42 +283,42 @@ const HOT = {
 
   canvas.addEventListener("click", (e) => {
     const p = normPos(e);
-    console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3)); // ✅ DEBUG
+    console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3));
 
-    // Voltmètre
-    if (inRect(p.x, p.y, HOT.v_vdc)) {
+    const h = HOT();
+
+    if (inRect(p.x, p.y, h.v_vdc)) {
       state.vMode = "VDC";
       status.textContent = "Voltmètre : V⎓ sélectionné.";
       draw();
       return;
     }
-    if (inRect(p.x, p.y, HOT.v_off)) {
+    if (inRect(p.x, p.y, h.v_off)) {
       state.vMode = "OFF";
       status.textContent = "Voltmètre : OFF.";
       draw();
       return;
     }
 
-    // Ampèremètre
-    if (inRect(p.x, p.y, HOT.a_2a)) {
+    if (inRect(p.x, p.y, h.a_2a)) {
       state.aMode = "2A";
       status.textContent = "Ampèremètre : 2A sélectionné (moins précis).";
       draw();
       return;
     }
-    if (inRect(p.x, p.y, HOT.a_ma)) {
+    if (inRect(p.x, p.y, h.a_ma)) {
       state.aMode = "mA";
       status.textContent = "Ampèremètre : mA sélectionné (plus précis).";
       draw();
       return;
     }
-    if (inRect(p.x, p.y, HOT.a_ua)) {
+    if (inRect(p.x, p.y, h.a_ua)) {
       state.aMode = "uA";
       status.textContent = "Ampèremètre : plus petit calibre sélectionné (plus précis).";
       draw();
       return;
     }
-    if (inRect(p.x, p.y, HOT.a_off)) {
+    if (inRect(p.x, p.y, h.a_off)) {
       state.aMode = "OFF";
       status.textContent = "Ampèremètre : OFF.";
       draw();
@@ -297,6 +336,7 @@ const HOT = {
     state.aMode = "OFF";
 
     uRange.value = "3";
+    setActive(100);
     sync();
     status.textContent = "Reset : les deux multimètres sont sur OFF.";
     draw();
