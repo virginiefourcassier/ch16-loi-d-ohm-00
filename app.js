@@ -1,4 +1,4 @@
-/* app.js (corrigé : zone V du voltmètre centrée sur 0.037 0.557, hauteur /2) */
+/* app.js (V inchangé ; OFF volt + OFF amp recadrés aux coordonnées demandées) */
 (() => {
   "use strict";
 
@@ -66,9 +66,7 @@
     const srcW = srcBox.r - srcBox.l;
     const srcH = srcBox.b - srcBox.t;
 
-    const sX = dstBox.w / srcW;
-    const sY = dstBox.h / srcH;
-    const s = Math.min(sX, sY);
+    const s = Math.min(dstBox.w / srcW, dstBox.h / srcH);
 
     const fitW = srcW * s;
     const fitH = srcH * s;
@@ -90,7 +88,7 @@
   function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
-        // V⎓
+        // V⎓ (NE PAS TOUCHER : bon à 0.037 0.557 d’après vous)
         v_vdc: { x: m.x + 0.060 * m.w, y: m.y + 0.430 * m.h, w: 0.085 * m.w, h: 0.120 * m.h },
         // OFF
         v_off: { x: m.x + 0.105 * m.w, y: m.y + 0.610 * m.h, w: 0.095 * m.w, h: 0.100 * m.h }
@@ -146,7 +144,6 @@
     const vt = readVoltText();
     const at = readAmpText();
 
-    // (positions actuelles de l’affichage LCD — on ne touche pas ici)
     if (vt) ctx.fillText(vt, 0.102 * canvas.width, 0.295 * canvas.height);
     if (at) ctx.fillText(at, 0.900 * canvas.width, 0.298 * canvas.height);
 
@@ -221,16 +218,31 @@
     const ha = hotFromMeterBox(DST.amp, "amp");
     HOT = { ...hv, ...ha };
 
-    // ✅ 1) Zone V⎓ centrée sur CLICK canvas 0.037 0.557
-    // ✅ 2) Hauteur divisée par 2
+    // ✅ OFF voltmètre : centré sur 0.054 0.642 + hauteur /2 (largeur inchangée)
     {
-      const cx = 0.037 * canvas.width;
-      const cy = 0.557 * canvas.height;
+      const cx = 0.054 * canvas.width;
+      const cy = 0.642 * canvas.height;
 
-      const w = HOT.v_vdc.w;          // on garde la largeur actuelle
-      const h = HOT.v_vdc.h / 2;      // hauteur /2
+      const w = HOT.v_off.w;
+      const h = HOT.v_off.h / 2;
 
-      HOT.v_vdc = {
+      HOT.v_off = {
+        x: cx - w / 2,
+        y: cy - h / 2,
+        w,
+        h
+      };
+    }
+
+    // ✅ OFF ampèremètre : centré sur 0.842 0.631 (taille inchangée)
+    {
+      const cx = 0.842 * canvas.width;
+      const cy = 0.631 * canvas.height;
+
+      const w = HOT.a_off.w;
+      const h = HOT.a_off.h;
+
+      HOT.a_off = {
         x: cx - w / 2,
         y: cy - h / 2,
         w,
