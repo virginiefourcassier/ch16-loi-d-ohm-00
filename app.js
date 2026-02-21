@@ -31,24 +31,23 @@
 
   // ====== IMAGES ======
   const bg = new Image();
-  bg.src = "fond.jpg?v=3000";
+  bg.src = "fond.jpg?v=3001";
   bg.onload = () => { state.bgOk = true; draw(); };
   bg.onerror = () => { state.bgOk = false; draw(); };
 
   const imgVolt = new Image();
-  imgVolt.src = "voltmetre.png?v=3000";
+  imgVolt.src = "voltmetre.png?v=3001";
 
   const imgA2A = new Image();
-  imgA2A.src = "amperemetre_2A.png?v=3000";
+  imgA2A.src = "amperemetre_2A.png?v=3001";
 
   const imgAmA = new Image();
-  imgAmA.src = "amperemetre_mA.png?v=3000";
+  imgAmA.src = "amperemetre_mA.png?v=3001";
 
   const imgAuA = new Image();
-  imgAuA.src = "amperemetre_microA.png?v=3000";
+  imgAuA.src = "amperemetre_microA.png?v=3001";
 
   // ====== ALIGNEMENT PAR "ZONE UTILE" (bbox alpha) ======
-  // bbox alpha (pixels non transparents) mesurés dans les PNG
   const SRC = {
     volt: { l: 3, t: 3, r: 354, b: 673 },   // w=351 h=670
     a2a:  { l: 5, t: 10, r: 394, b: 611 },  // w=389 h=601
@@ -56,15 +55,13 @@
     aua:  { l: 4, t: 5,  r: 397, b: 613 }   // w=393 h=608
   };
 
-  // Rectangle cible (dans fond.jpg) du multimètre + cordons (mesuré automatiquement côté dev)
-  // (canvas = 1280x720 identique à fond.jpg)
+  // Rectangle cible (dans fond.jpg) des multimètres
   const DST = {
     volt: { x: 0,   y: 108, w: 315, h: 598 },
     amp:  { x: 913, y: 108, w: 367, h: 559 }
   };
 
   function drawOverlayAligned(img, srcBox, dstBox) {
-    // On veut que la bbox utile (srcBox) s’inscrive dans dstBox en gardant le ratio
     const srcW = srcBox.r - srcBox.l;
     const srcH = srcBox.b - srcBox.t;
 
@@ -72,15 +69,12 @@
     const sY = dstBox.h / srcH;
     const s = Math.min(sX, sY);
 
-    // taille de la bbox utile une fois scalée
     const fitW = srcW * s;
     const fitH = srcH * s;
 
-    // centrage de la bbox utile dans le rectangle cible
     const offX = dstBox.x + (dstBox.w - fitW) / 2;
     const offY = dstBox.y + (dstBox.h - fitH) / 2;
 
-    // on calcule où dessiner l'image complète pour que sa bbox utile tombe sur (offX,offY)
     const dx = offX - srcBox.l * s;
     const dy = offY - srcBox.t * s;
     const dw = img.width * s;
@@ -88,32 +82,30 @@
 
     ctx.drawImage(img, 0, 0, img.width, img.height, dx, dy, dw, dh);
 
-    // renvoie la bbox utile en coordonnées canvas (pratique pour hotspots ensuite)
     return { x: offX, y: offY, w: fitW, h: fitH };
   }
 
-  // ====== HOTSPOTS (temporaire : rectangles étroits, ordre 2A > mA > µA) ======
-  // On les place RELATIVEMENT à la bbox utile (renvoyée par drawOverlayAligned)
-  // => ça suivra parfaitement l’overlay une fois aligné.
-  function hotFromMeterBBox(m, kind) {
-    // m = bbox utile (x,y,w,h)
-    // BUT : zones très petites (symboles), à ajuster ensuite si besoin
+  // ====== HOTSPOTS (zones plus petites + recalées) ======
+  // On les définit RELATIVEMENT au rectangle du multimètre (DST),
+  // puis on ajuste finement via les coefficients ci-dessous.
+  function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
-        // symbole V⎓ (zone étroite)
-        v_vdc: { x: m.x + 0.08 * m.w, y: m.y + 0.54 * m.h, w: 0.10 * m.w, h: 0.10 * m.h },
-        // OFF (petit)
-        v_off: { x: m.x + 0.22 * m.w, y: m.y + 0.80 * m.h, w: 0.10 * m.w, h: 0.08 * m.h }
-      };
-    } else {
-      return {
-        // 2A au-dessus de mA au-dessus de µA
-        a_2a: { x: m.x + 0.78 * m.w, y: m.y + 0.48 * m.h, w: 0.12 * m.w, h: 0.09 * m.h },
-        a_ma: { x: m.x + 0.78 * m.w, y: m.y + 0.58 * m.h, w: 0.12 * m.w, h: 0.09 * m.h },
-        a_ua: { x: m.x + 0.78 * m.w, y: m.y + 0.68 * m.h, w: 0.12 * m.w, h: 0.09 * m.h },
-        a_off:{ x: m.x + 0.30 * m.w, y: m.y + 0.80 * m.h, w: 0.10 * m.w, h: 0.08 * m.h }
+        // symbole V⎓ (petite zone sur le "V" en bas à gauche)
+        v_vdc: { x: m.x + 0.055 * m.w, y: m.y + 0.615 * m.h, w: 0.090 * m.w, h: 0.115 * m.h },
+        // OFF (petite zone)
+        v_off: { x: m.x + 0.205 * m.w, y: m.y + 0.785 * m.h, w: 0.090 * m.w, h: 0.085 * m.h }
       };
     }
+    return {
+      // colonne de droite (3 calibres) : zones plus étroites et un peu plus à droite
+      // NOTE: on garde la géométrie, et on intervertit l'EFFET 2A/µA dans le click handler (demande #4)
+      a_2a: { x: m.x + 0.845 * m.w, y: m.y + 0.500 * m.h, w: 0.105 * m.w, h: 0.095 * m.h },
+      a_ma: { x: m.x + 0.845 * m.w, y: m.y + 0.600 * m.h, w: 0.105 * m.w, h: 0.095 * m.h },
+      a_ua: { x: m.x + 0.845 * m.w, y: m.y + 0.700 * m.h, w: 0.105 * m.w, h: 0.095 * m.h },
+      // OFF (petit)
+      a_off:{ x: m.x + 0.300 * m.w, y: m.y + 0.800 * m.h, w: 0.100 * m.w, h: 0.085 * m.h }
+    };
   }
 
   function drawHotRect(r, color) {
@@ -124,11 +116,10 @@
     ctx.restore();
   }
 
-  // ====== LCD (texte superposé) ======
-  // (positions en % du canvas ; à ajuster ensuite si besoin)
+  // ====== LCD (texte) — descendu pour tomber dans l'écran LCD ======
   const LCD_POS = {
-    volt: { x: 0.11, y: 0.12 },
-    amp:  { x: 0.73, y: 0.12 }
+    volt: { x: 0.105, y: 0.165 },
+    amp:  { x: 0.725, y: 0.165 }
   };
 
   function readVoltText() {
@@ -140,6 +131,7 @@
     if (state.aMode === "OFF") return "";
 
     const I = I_phys(state.U, state.R); // A
+
     const rangeA =
       state.aMode === "2A" ? 2 :
       state.aMode === "mA" ? 0.2 :
@@ -152,7 +144,7 @@
       state.aMode === "mA" ? 1 :
       2;
 
-    return (I * 1000).toFixed(decimals); // mA affichés
+    return (I * 1000).toFixed(decimals); // affiché en mA
   }
 
   function drawLCDText() {
@@ -202,16 +194,12 @@
   }
 
   // ====== DESSIN ======
-  let lastVoltBBox = null;
-  let lastAmpBBox = null;
   let HOT = null;
 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (state.bgOk) {
-      ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-    } else {
+    if (!state.bgOk) {
       ctx.fillStyle = "#0f1730";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "rgba(255,77,109,.95)";
@@ -220,11 +208,11 @@
       return;
     }
 
-    // overlays alignés
+    ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+    // overlays
     if (state.vMode === "VDC") {
-      lastVoltBBox = drawOverlayAligned(imgVolt, SRC.volt, DST.volt);
-    } else {
-      lastVoltBBox = null;
+      drawOverlayAligned(imgVolt, SRC.volt, DST.volt);
     }
 
     let imgA = null, srcA = null;
@@ -233,17 +221,12 @@
     if (state.aMode === "uA") { imgA = imgAuA; srcA = SRC.aua; }
 
     if (imgA && srcA) {
-      lastAmpBBox = drawOverlayAligned(imgA, srcA, DST.amp);
-    } else {
-      lastAmpBBox = null;
+      drawOverlayAligned(imgA, srcA, DST.amp);
     }
 
-    // hotspots recalculés sur les bbox (utile même si overlay OFF)
-    const mVolt = { x: DST.volt.x, y: DST.volt.y, w: DST.volt.w, h: DST.volt.h };
-    const mAmp  = { x: DST.amp.x,  y: DST.amp.y,  w: DST.amp.w,  h: DST.amp.h  };
-
-    const hv = hotFromMeterBBox(mVolt, "volt");
-    const ha = hotFromMeterBBox(mAmp, "amp");
+    // hotspots (toujours, même si OFF)
+    const hv = hotFromMeterBox(DST.volt, "volt");
+    const ha = hotFromMeterBox(DST.amp, "amp");
     HOT = { ...hv, ...ha };
 
     drawLCDText();
@@ -254,7 +237,7 @@
       drawHotRect(HOT.a_2a, "cyan");
       drawHotRect(HOT.a_ma, "cyan");
       drawHotRect(HOT.a_ua, "cyan");
-      drawHotRect(HOT.a_off,"cyan");
+      drawHotRect(HOT.a_off, "cyan");
     }
   }
 
@@ -291,10 +274,12 @@
       return;
     }
 
-    // ordre : 2A (haut) > mA > µA
+    // ✅ Demande #4 : intervertir l'effet des clics 2A et µA
+    // - clic sur zone "a_2a" => µA
+    // - clic sur zone "a_ua" => 2A
     if (inRect(x, y, HOT.a_2a)) {
-      state.aMode = "2A";
-      status.textContent = "Ampèremètre : 2A sélectionné.";
+      state.aMode = "uA";
+      status.textContent = "Ampèremètre : µA sélectionné.";
       draw();
       return;
     }
@@ -305,8 +290,8 @@
       return;
     }
     if (inRect(x, y, HOT.a_ua)) {
-      state.aMode = "uA";
-      status.textContent = "Ampèremètre : µA sélectionné.";
+      state.aMode = "2A";
+      status.textContent = "Ampèremètre : 2A sélectionné.";
       draw();
       return;
     }
@@ -326,6 +311,7 @@
     state.R = 100;
     state.vMode = "OFF";
     state.aMode = "OFF";
+
     uRange.value = "3";
     setActive(100);
     sync();
@@ -341,6 +327,6 @@
   // ====== INIT ======
   buildResButtons();
   sync();
-  status.textContent = "Départ : OFF. Clique V⎓ puis 2A/mA/µA.";
+  status.textContent = "Départ : OFF. Clique V⎓ puis un calibre A.";
   draw();
 })();
