@@ -3,177 +3,208 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>⚡ Loi d’Ohm — Simulation (zones cliquables)</title>
+  <title>Étude de la Loi d'Ohm</title>
   <style>
     :root{
-      --bg:#0b1020;
-      --panel:rgba(15,23,48,.78);
-      --card:rgba(255,255,255,.05);
-      --border:rgba(255,255,255,.12);
-      --text:#e9eefc;
-      --muted:#b8c2e6;
-      --ok:#67e8a6;
-      --radius:16px;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      --bg:#070c1d;
+      --panel:#0e1836;
+      --panel2:#0b1330;
+      --txt:#e9eefc;
+      --muted:#a9b6de;
+      --accent:#25d0ff;
+      --accent2:#67e8a6;
+      --line:rgba(255,255,255,.10);
+      --shadow:0 18px 40px rgba(0,0,0,.55);
+      --radius:18px;
     }
+    *{box-sizing:border-box}
     body{
       margin:0;
-      background: radial-gradient(1100px 650px at 18% 0%, #14204a, var(--bg));
-      color:var(--text);
+      font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:radial-gradient(1100px 600px at 30% 15%, #14214a 0%, var(--bg) 60%);
+      color:var(--txt);
     }
     .wrap{
-      max-width:1250px;
-      margin:0 auto;
-      padding:18px;
       display:grid;
-      grid-template-columns: 1.25fr .75fr;
-      gap:16px;
+      grid-template-columns: 1.45fr 0.85fr;
+      gap:18px;
+      padding:18px;
+      min-height:100vh;
     }
-    .stage, .controls{
-      background: var(--panel);
-      border:1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 16px 40px rgba(0,0,0,.35);
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
     }
-    .stage{ padding:12px; }
+    .left{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
     canvas{
       width:100%;
       height:auto;
-      display:block;
-      border-radius: 12px;
-      background: rgba(255,255,255,.03);
+      border-radius:16px;
       border:1px solid rgba(255,255,255,.08);
-      cursor: pointer;
+      background:#0f1730;
     }
     .footer{
-      margin-top:8px;
+      text-align:center;
+      color:rgba(233,238,252,.72);
       font-size:12px;
-      text-align:right;
-      opacity:.85;
+      padding-top:6px;
     }
-    .controls{ padding:14px; display:flex; flex-direction:column; gap:12px; }
-    h1{ font-size:18px; margin:0; }
-    .sub{ color:var(--muted); font-size:13px; line-height:1.35; margin-top:6px; }
-    .card{
-      background: var(--card);
-      border:1px solid rgba(255,255,255,.08);
-      border-radius: 14px;
-      padding:12px;
-    }
-    .row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .label{ font-weight:750; }
-    .val{
-      font-variant-numeric: tabular-nums;
-      font-weight:850;
-      color:var(--ok);
-    }
-    .muted{ color:var(--muted); font-size:12px; }
-    input[type="range"]{ width:100%; }
 
-    .res-grid{
-      display:grid;
-      grid-template-columns: repeat(4, 1fr);
+    .right{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+    h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
       gap:8px;
+    }
+    .hint{
+      margin:0;
+      font-size:12px;
+      color:rgba(233,238,252,.78);
+      line-height:1.35;
+    }
+
+    .block{
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:14px;
+    }
+    .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .label{
+      font-weight:700;
+      font-size:13px;
+    }
+    .value{
+      font-weight:800;
+      color:var(--accent2);
+    }
+    input[type="range"]{
+      width:100%;
+      margin-top:10px;
+    }
+    .small{
+      font-size:12px;
+      color:rgba(233,238,252,.70);
+      margin-top:6px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
       margin-top:10px;
     }
     .btn{
-      appearance:none;
       border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
+      background:rgba(255,255,255,.06);
+      color:var(--txt);
       padding:10px 8px;
-      border-radius: 12px;
+      border-radius:12px;
       cursor:pointer;
-      font-weight:750;
-      font-size:13px;
-      text-align:center;
-      user-select:none;
+      font-weight:700;
     }
-    .btn:hover{ background: rgba(255,255,255,.10); }
+    .btn:hover{background:rgba(255,255,255,.10)}
     .btn.active{
-      border-color: rgba(122,167,255,.75);
-      background: rgba(122,167,255,.18);
+      border-color:rgba(37,208,255,.55);
+      box-shadow:0 0 0 2px rgba(37,208,255,.18) inset;
+      background:rgba(37,208,255,.10);
     }
 
-    .actions{ display:flex; gap:8px; }
-    button{
+    .status{
+      min-height:42px;
+      font-size:12px;
+      color:rgba(233,238,252,.80);
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.14);
+      border-radius:14px;
+      padding:12px 12px;
+    }
+
+    .actions{
+      display:flex;
+      gap:10px;
+    }
+    .action{
       flex:1;
-      padding:10px 10px;
-      border-radius: 12px;
       border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color: var(--text);
-      font-weight:800;
+      background:rgba(255,255,255,.06);
+      color:var(--txt);
+      padding:10px 10px;
+      border-radius:12px;
       cursor:pointer;
+      font-weight:800;
     }
-    button:hover{ background: rgba(255,255,255,.10); }
-
-    .hint{
-      font-size:12.5px;
-      line-height:1.35;
-      color: rgba(233,238,252,.86);
-      border-left:4px solid rgba(122,167,255,.75);
-      padding-left:10px;
-    }
-
-    @media (max-width: 920px){
-      .wrap{ grid-template-columns: 1fr; }
-    }
+    .action:hover{background:rgba(255,255,255,.10)}
   </style>
 </head>
+
 <body>
-
-<div class="wrap">
-
-  <section class="stage">
-    <canvas id="c" width="1280" height="720"></canvas>
-    <div class="footer">Virginie Fourcassier. Lycée Pierre de Fermat. Toulouse</div>
-  </section>
-
-  <aside class="controls">
-    <div>
-      <h1>⚡ Étude de la Loi d’Ohm</h1>
-      <div class="sub">Réglez U, choisissez R. Cliquez sur les zones des multimètres (sur l’image) pour régler le calibre et afficher la mesure.</div>
+  <div class="wrap">
+    <div class="card left">
+      <canvas id="c" width="1200" height="650"></canvas>
+      <div class="footer">Virginie Fourcassier, Lycée Pierre de Fermat, Toulouse</div>
     </div>
 
-    <div class="card">
-      <div class="row">
-        <div class="label">Tension U</div>
-        <div class="val"><span id="uTxt">3.0</span> V</div>
+    <div class="card right">
+      <h1>⚡ Étude de la Loi d'Ohm</h1>
+      <p class="hint">Réglez U, choisissez R. Cliquez sur les zones des multimètres (sur l'image) pour régler le calibre et afficher la mesure.</p>
+
+      <div class="block">
+        <div class="row">
+          <div class="label">Tension U</div>
+          <div class="value"><span id="uTxt">3.0</span> V</div>
+        </div>
+        <input id="uRange" type="range" min="0" max="10" step="0.1" value="3">
+        <div class="small">0 → 10 V (pas 0,1 V)</div>
       </div>
-      <input id="uRange" type="range" min="0" max="10" step="0.1" value="3.0">
-      <div class="muted">0 → 10 V (pas 0,1 V)</div>
-    </div>
 
-    <div class="card">
-      <div class="row">
-        <div class="label">Résistance R</div>
-        <div class="val"><span id="rTxt">100</span> Ω</div>
+      <div class="block">
+        <div class="row">
+          <div class="label">Résistance R</div>
+          <div class="value"><span id="rTxt">100</span> Ω</div>
+        </div>
+        <div class="grid" id="resGrid"></div>
+        <div class="small">Sélection : 10, 33, 47, 68, 100, 220, 330, 470 Ω</div>
       </div>
-      <div class="res-grid" id="resGrid"></div>
-      <div class="muted">Sélection : 10, 33, 47, 68, 100, 220, 330, 470 Ω</div>
-    </div>
 
-    <div class="card">
-      <div class="row">
-        <div class="label">Intensité idéale</div>
-        <div class="val"><span id="iIdeal">30.0</span> mA</div>
+      <div class="block">
+        <div class="row">
+          <div class="label">Intensité idéale</div>
+          <div class="value"><span id="iIdeal">30.0</span> mA</div>
+        </div>
+        <div class="small">Calcul : I = U / R (valeur physique du circuit)</div>
       </div>
-      <div class="muted">Calcul : I = U / R (valeur physique du circuit)</div>
+
+      <div class="status" id="status"></div>
+
+      <div class="actions">
+        <button class="action" id="resetBtn">⟲ Reset</button>
+        <button class="action" id="showHotBtn">👁 Zones</button>
+      </div>
     </div>
+  </div>
 
-    <div class="card hint" id="status">
-      Cliquez sur : (1) zone V⎓ du voltmètre (gauche) ; (2) une des 3 zones A⎓ de l’ampèremètre (droite).
-    </div>
-
-    <div class="actions">
-      <button id="resetBtn">⟲ Reset</button>
-      <button id="showHotBtn">👁 Zones</button>
-    </div>
-  </aside>
-
-</div>
-
-<script src="app.js?v=6"></script>
+  <script src="app.js?v=1000"></script>
 </body>
 </html>
