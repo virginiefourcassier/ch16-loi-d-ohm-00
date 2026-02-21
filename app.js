@@ -31,21 +31,21 @@
 
   // ====== IMAGES ======
   const bg = new Image();
-  bg.src = "fond.jpg?v=3002";
+  bg.src = "fond.jpg?v=3004";
   bg.onload = () => { state.bgOk = true; draw(); };
   bg.onerror = () => { state.bgOk = false; draw(); };
 
   const imgVolt = new Image();
-  imgVolt.src = "voltmetre.png?v=3002";
+  imgVolt.src = "voltmetre.png?v=3004";
 
   const imgA2A = new Image();
-  imgA2A.src = "amperemetre_2A.png?v=3002";
+  imgA2A.src = "amperemetre_2A.png?v=3004";
 
   const imgAmA = new Image();
-  imgAmA.src = "amperemetre_mA.png?v=3002";
+  imgAmA.src = "amperemetre_mA.png?v=3004";
 
   const imgAuA = new Image();
-  imgAuA.src = "amperemetre_microA.png?v=3002";
+  imgAuA.src = "amperemetre_microA.png?v=3004";
 
   // ====== ALIGNEMENT PAR "ZONE UTILE" (bbox alpha) ======
   const SRC = {
@@ -85,24 +85,24 @@
     return { x: offX, y: offY, w: fitW, h: fitH };
   }
 
-  // ====== HOTSPOTS (recalés) ======
-  // Objectif : coller aux marquages sur les cadrans (plus haut qu’avant).
+  // ====== HOTSPOTS (recalés + abaissés) ======
+  // NOTE : valeurs ajustées pour descendre les zones (elles étaient trop hautes)
   function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
-        // symbole V⎓ : remonte + recentré sur le marquage V
-        v_vdc: { x: m.x + 0.060 * m.w, y: m.y + 0.430 * m.h, w: 0.085 * m.w, h: 0.120 * m.h },
-        // OFF : remonte (zone plus petite)
-        v_off: { x: m.x + 0.105 * m.w, y: m.y + 0.610 * m.h, w: 0.095 * m.w, h: 0.100 * m.h }
+        // symbole V⎓ : abaissé
+        v_vdc: { x: m.x + 0.060 * m.w, y: m.y + 0.520 * m.h, w: 0.095 * m.w, h: 0.125 * m.h },
+        // OFF : abaissé
+        v_off: { x: m.x + 0.105 * m.w, y: m.y + 0.705 * m.h, w: 0.105 * m.w, h: 0.110 * m.h }
       };
     }
     return {
-      // colonne de droite (3 calibres) : remonte nettement
-      a_2a: { x: m.x + 0.835 * m.w, y: m.y + 0.360 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
-      a_ma: { x: m.x + 0.835 * m.w, y: m.y + 0.455 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
-      a_ua: { x: m.x + 0.835 * m.w, y: m.y + 0.550 * m.h, w: 0.120 * m.w, h: 0.105 * m.h },
-      // OFF (petit) : remonte aussi
-      a_off:{ x: m.x + 0.210 * m.w, y: m.y + 0.610 * m.h, w: 0.110 * m.w, h: 0.095 * m.h }
+      // colonne de droite (3 calibres) : abaissée
+      a_2a: { x: m.x + 0.835 * m.w, y: m.y + 0.440 * m.h, w: 0.125 * m.w, h: 0.110 * m.h },
+      a_ma: { x: m.x + 0.835 * m.w, y: m.y + 0.545 * m.h, w: 0.125 * m.w, h: 0.110 * m.h },
+      a_ua: { x: m.x + 0.835 * m.w, y: m.y + 0.650 * m.h, w: 0.125 * m.w, h: 0.110 * m.h },
+      // OFF : abaissé
+      a_off:{ x: m.x + 0.210 * m.w, y: m.y + 0.705 * m.h, w: 0.120 * m.w, h: 0.105 * m.h }
     };
   }
 
@@ -114,16 +114,24 @@
     ctx.restore();
   }
 
-  // ====== LCD (texte) — DESCENDU dans l’écran LCD ======
-  // (avant : trop haut, sur le fond blanc)
-  const LCD_POS = {
-    volt: { x: 0.105, y: 0.235 },
-    amp:  { x: 0.725, y: 0.235 }
-  };
+  // ====== LCD (texte) — positionnée DANS les écrans (plus bas) ======
+  // On place la mesure RELATIVEMENT à chaque multimètre (DST), pas au canvas.
+  function lcdPosVolt() {
+    return {
+      x: DST.volt.x + 0.33 * DST.volt.w,
+      y: DST.volt.y + 0.22 * DST.volt.h
+    };
+  }
+  function lcdPosAmp() {
+    return {
+      x: DST.amp.x + 0.33 * DST.amp.w,
+      y: DST.amp.y + 0.22 * DST.amp.h
+    };
+  }
 
   function readVoltText() {
     if (state.vMode !== "VDC") return "";
-    return state.U.toFixed(2);
+    return state.U.toFixed(2) + " V";
   }
 
   function readAmpText() {
@@ -138,26 +146,34 @@
 
     if (I > rangeA + 1e-12) return "ERREUR";
 
-    const decimals =
-      state.aMode === "2A" ? 0 :
-      state.aMode === "mA" ? 1 :
-      2;
-
-    return (I * 1000).toFixed(decimals); // affiché en mA
+    if (state.aMode === "2A") {
+      return I.toFixed(2) + " A";
+    }
+    if (state.aMode === "mA") {
+      return (I * 1000).toFixed(1) + " mA";
+    }
+    // uA
+    return (I * 1_000_000).toFixed(0) + " µA";
   }
 
   function drawLCDText() {
     ctx.save();
     ctx.fillStyle = "black";
-    ctx.font = "bold 40px monospace";
+    ctx.font = "bold 36px monospace";
     ctx.textBaseline = "middle";
     ctx.textAlign = "left";
 
     const vt = readVoltText();
     const at = readAmpText();
 
-    if (vt) ctx.fillText(vt, LCD_POS.volt.x * canvas.width, LCD_POS.volt.y * canvas.height);
-    if (at) ctx.fillText(at, LCD_POS.amp.x * canvas.width, LCD_POS.amp.y * canvas.height);
+    if (vt) {
+      const p = lcdPosVolt();
+      ctx.fillText(vt, p.x, p.y);
+    }
+    if (at) {
+      const p = lcdPosAmp();
+      ctx.fillText(at, p.x, p.y);
+    }
 
     ctx.restore();
   }
