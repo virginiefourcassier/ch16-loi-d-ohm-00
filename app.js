@@ -51,8 +51,8 @@
   };
 
   const DST = {
-    volt:{x:0, y:108, w:315, h:598},
-    amp:{x:913, y:108, w:367, h:559}
+    volt:{x:0,   y:108, w:315, h:598},
+    amp: {x:913, y:108, w:367, h:559}
   };
 
   function drawOverlayAligned(img, srcBox, dstBox) {
@@ -72,11 +72,12 @@
   function hotFromMeterBox(m, kind) {
     if (kind === "volt") {
       return {
-        // sera corrigée juste après pour V & OFF
+        // sera corrigée ailleurs
         v_vdc:{x: m.x+0.060*m.w, y: m.y+0.430*m.h, w:0.085*m.w, h:0.120*m.h},
         v_off:{x: m.x+0.105*m.w, y: m.y+0.610*m.h, w:0.095*m.w, h:0.100*m.h}
       };
     }
+    // valeurs de base pour l’ampèremètre (seront recalées ensuite)
     return {
       a_2a:{x: m.x+0.835*m.w, y: m.y+0.360*m.h, w:0.120*m.w, h:0.105*m.h},
       a_ma:{x: m.x+0.835*m.w, y: m.y+0.455*m.h, w:0.120*m.w, h:0.105*m.h},
@@ -86,7 +87,11 @@
   }
 
   function drawHotRect(r,color){
-    ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=3; ctx.strokeRect(r.x,r.y,r.w,r.h); ctx.restore();
+    ctx.save();
+    ctx.strokeStyle=color;
+    ctx.lineWidth=3;
+    ctx.strokeRect(r.x,r.y,r.w,r.h);
+    ctx.restore();
   }
 
   // === LCD ===
@@ -130,7 +135,8 @@
     setActive(state.R);
   }
   function setActive(R){
-    [...resGrid.querySelectorAll("button")].forEach(b=>b.classList.toggle("active",Number(b.dataset.r)===R));
+    [...resGrid.querySelectorAll("button")]
+      .forEach(b=>b.classList.toggle("active",Number(b.dataset.r)===R));
   }
   function sync(){
     state.U=clamp(parseFloat(uRange.value||"0"),0,parseFloat(uRange.max||"12"));
@@ -143,7 +149,8 @@
   function draw(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     if(!state.bgOk){
-      ctx.fillStyle="#0f1730"; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="#0f1730";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
       ctx.fillStyle="rgba(255,77,109,.95)";
       ctx.font="900 34px system-ui,Segoe UI,Arial";
       ctx.fillText("FOND NON CHARGÉ",40,90);
@@ -151,35 +158,64 @@
     }
     ctx.drawImage(bg,0,0,canvas.width,canvas.height);
 
-    if(state.vMode==="VDC"){ drawOverlayAligned(imgVolt,SRC.volt,DST.volt); }
+    if(state.vMode==="VDC"){
+      drawOverlayAligned(imgVolt,SRC.volt,DST.volt);
+    }
     let imgA=null,srcA=null;
     if(state.aMode==="2A"){imgA=imgA2A;srcA=SRC.a2a;}
     if(state.aMode==="mA"){imgA=imgAmA;srcA=SRC.ama;}
     if(state.aMode==="uA"){imgA=imgAuA;srcA=SRC.aua;}
-    if(imgA&&srcA){drawOverlayAligned(imgA,srcA,DST.amp);}
+    if(imgA&&srcA){
+      drawOverlayAligned(imgA,srcA,DST.amp);
+    }
 
     const hv=hotFromMeterBox(DST.volt,"volt");
     const ha=hotFromMeterBox(DST.amp,"amp");
     HOT={...hv,...ha};
 
-    // ✅ V zone centrée sur (0.039, 0.555), hauteur /2
+    // V centré + OFF voltmètre + OFF ampèremètre déjà calés précédemment
     {
       const cx=0.039*canvas.width, cy=0.555*canvas.height;
       const w=0.085*DST.volt.w, h=0.120*DST.volt.h/2;
       HOT.v_vdc={x:cx-w/2,y:cy-h/2,w,h};
     }
-    // ✅ OFF voltmètre centrée sur (0.054, 0.642)
     {
       const cx=0.054*canvas.width, cy=0.642*canvas.height;
       const w=0.095*DST.volt.w, h=0.100*DST.volt.h;
       HOT.v_off={x:cx-w/2,y:cy-h/2,w,h};
     }
-    // ✅ OFF ampèremètre centrée sur (0.842, 0.631)
     {
       const cx=0.842*canvas.width, cy=0.631*canvas.height;
       const w=0.110*DST.amp.w, h=0.095*DST.amp.h;
       HOT.a_off={x:cx-w/2,y:cy-h/2,w,h};
     }
+
+    // === Recentrage des calibres A ===
+    // a_2a centré sur (0.945, 0.479)
+    {
+      const cx = 0.945 * canvas.width;
+      const cy = 0.479 * canvas.height;
+      const w  = 0.10 * DST.amp.w;   // un peu plus petit que 0.120
+      const h  = 0.08 * DST.amp.h;   // un peu plus petit que 0.105
+      HOT.a_2a = { x: cx - w/2, y: cy - h/2, w, h };
+    }
+    // a_ma centré sur (0.928, 0.447)
+    {
+      const cx = 0.928 * canvas.width;
+      const cy = 0.447 * canvas.height;
+      const w  = 0.10 * DST.amp.w;
+      const h  = 0.08 * DST.amp.h;
+      HOT.a_ma = { x: cx - w/2, y: cy - h/2, w, h };
+    }
+    // a_ua centré sur (0.910, 0.427)
+    {
+      const cx = 0.910 * canvas.width;
+      const cy = 0.427 * canvas.height;
+      const w  = 0.10 * DST.amp.w;
+      const h  = 0.08 * DST.amp.h;
+      HOT.a_ua = { x: cx - w/2, y: cy - h/2, w, h };
+    }
+    // avec ces tailles, les trois rectangles restent séparés (pas de chevauchement).
 
     drawLCDText();
     if(state.showHotspots && HOT){
@@ -197,7 +233,9 @@
     const r=canvas.getBoundingClientRect();
     return {x:(evt.clientX-r.left)/r.width, y:(evt.clientY-r.top)/r.height};
   }
-  function inRect(px,py,r){return px>=r.x&&px<=r.x+r.w&&py>=r.y&&py<=r.y+r.h;}
+  function inRect(px,py,r){
+    return px>=r.x && px<=r.x+r.w && py>=r.y && py<=r.y+r.h;
+  }
 
   canvas.addEventListener("click",(e)=>{
     if(!HOT) return;
@@ -205,28 +243,60 @@
     console.log("CLICK canvas", p.x.toFixed(3), p.y.toFixed(3));
     const x=p.x*canvas.width, y=p.y*canvas.height;
 
-    if(inRect(x,y,HOT.v_vdc)){state.vMode="VDC";status.textContent="Voltmètre : V⎓ sélectionné.";draw();return;}
-    if(inRect(x,y,HOT.v_off)){state.vMode="OFF";status.textContent="Voltmètre : OFF.";draw();return;}
+    if(inRect(x,y,HOT.v_vdc)){
+      state.vMode="VDC";
+      status.textContent="Voltmètre : V⎓ sélectionné.";
+      draw(); return;
+    }
+    if(inRect(x,y,HOT.v_off)){
+      state.vMode="OFF";
+      status.textContent="Voltmètre : OFF.";
+      draw(); return;
+    }
 
-    if(inRect(x,y,HOT.a_2a)){state.aMode="uA";status.textContent="Ampèremètre : µA sélectionné.";draw();return;}
-    if(inRect(x,y,HOT.a_ma)){state.aMode="mA";status.textContent="Ampèremètre : mA sélectionné.";draw();return;}
-    if(inRect(x,y,HOT.a_ua)){state.aMode="2A";status.textContent="Ampèremètre : 2A sélectionné.";draw();return;}
-    if(inRect(x,y,HOT.a_off)){state.aMode="OFF";status.textContent="Ampèremètre : OFF.";draw();return;}
+    if(inRect(x,y,HOT.a_2a)){
+      state.aMode="uA";
+      status.textContent="Ampèremètre : µA sélectionné.";
+      draw(); return;
+    }
+    if(inRect(x,y,HOT.a_ma)){
+      state.aMode="mA";
+      status.textContent="Ampèremètre : mA sélectionné.";
+      draw(); return;
+    }
+    if(inRect(x,y,HOT.a_ua)){
+      state.aMode="2A";
+      status.textContent="Ampèremètre : 2A sélectionné.";
+      draw(); return;
+    }
+    if(inRect(x,y,HOT.a_off)){
+      state.aMode="OFF";
+      status.textContent="Ampèremètre : OFF.";
+      draw(); return;
+    }
   });
 
   // === Events ===
   uRange.addEventListener("input",()=>{sync();draw();});
   resetBtn.onclick=()=>{
-    state.U=3; state.R=100;
-    state.vMode="OFF"; state.aMode="OFF";
-    uRange.value="3"; setActive(100);
-    sync(); status.textContent="Reset : OFF."; draw();
+    state.U=3;
+    state.R=100;
+    state.vMode="OFF";
+    state.aMode="OFF";
+    uRange.value="3";
+    setActive(100);
+    sync();
+    status.textContent="Reset : OFF.";
+    draw();
   };
-  showHotBtn.onclick=()=>{state.showHotspots=!state.showHotspots; draw();};
+  showHotBtn.onclick=()=>{
+    state.showHotspots=!state.showHotspots;
+    draw();
+  };
 
   // === Init ===
   buildResButtons();
   sync();
-  status.textContent="Départ : OFF. Clique V⎓ puis un calibre A.";
+  status.textContent="Départ : OFF. Clique V⎓ puis un calibre A.";
   draw();
 })();
