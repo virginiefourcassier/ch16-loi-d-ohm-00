@@ -181,7 +181,7 @@
     const ha = hotFromMeterBox(DST.amp,"amp");
     HOT = {...hv, ...ha};
 
-    // V centré, taille divisée par 2 (on garde les proportions /2 déjà sur h)
+    // V centré, taille /2
     {
       const cx = 0.039*canvas.width;
       const cy = 0.555*canvas.height;
@@ -191,7 +191,7 @@
       const h  = h0/2;
       HOT.v_vdc = {x:cx-w/2,y:cy-h/2,w,h};
     }
-    // OFF voltmètre (même recentrage, taille /2)
+    // OFF voltmètre
     {
       const cx = 0.054*canvas.width;
       const cy = 0.642*canvas.height;
@@ -201,7 +201,7 @@
       const h  = h0/2;
       HOT.v_off = {x:cx-w/2,y:cy-h/2,w,h};
     }
-    // OFF ampèremètre (même recentrage, taille /2)
+    // OFF ampèremètre
     {
       const cx = 0.842*canvas.width;
       const cy = 0.631*canvas.height;
@@ -212,25 +212,22 @@
       HOT.a_off = {x:cx-w/2,y:cy-h/2,w,h};
     }
 
-    // === Calibres A : rayon divisé par 2 ===
+    // Calibres A : rayon /2
     const radiusBase = 0.035 * canvas.height;
     const radius     = radiusBase / 2;
 
-    // a_2a centré sur (0.945, 0.479)
     {
       const cx = 0.945 * canvas.width;
       const cy = 0.479 * canvas.height;
       const r  = radius;
       HOT.a_2a = { x:cx-r, y:cy-r, w:2*r, h:2*r, cx, cy, r };
     }
-    // a_ma centré sur (0.928, 0.447)
     {
       const cx = 0.928 * canvas.width;
       const cy = 0.447 * canvas.height;
       const r  = radius;
       HOT.a_ma = { x:cx-r, y:cy-r, w:2*r, h:2*r, cx, cy, r };
     }
-    // a_ua centré sur (0.910, 0.427)
     {
       const cx = 0.910 * canvas.width;
       const cy = 0.427 * canvas.height;
@@ -244,7 +241,6 @@
       drawHotRect(HOT.v_vdc,"yellow");
       drawHotRect(HOT.v_off,"yellow");
       drawHotRect(HOT.a_off,"cyan");
-
       drawHotRect(HOT.a_2a,"cyan");
       drawHotRect(HOT.a_ma,"cyan");
       drawHotRect(HOT.a_ua,"cyan");
@@ -296,9 +292,11 @@
       draw(); return;
     }
 
+    // ⚠ Interversion des actions a_2a / a_ua
     if(inCircle(x,y,HOT.a_2a.cx,HOT.a_2a.cy,HOT.a_2a.r)){
-      state.aMode="uA";
-      status.textContent="Ampèremètre : µA sélectionné.";
+      // avant : µA ; maintenant : 2A
+      state.aMode="2A";
+      status.textContent="Ampèremètre : 2A sélectionné.";
       draw(); return;
     }
     if(inCircle(x,y,HOT.a_ma.cx,HOT.a_ma.cy,HOT.a_ma.r)){
@@ -307,8 +305,9 @@
       draw(); return;
     }
     if(inCircle(x,y,HOT.a_ua.cx,HOT.a_ua.cy,HOT.a_ua.r)){
-      state.aMode="2A";
-      status.textContent="Ampèremètre : 2A sélectionné.";
+      // avant : 2A ; maintenant : µA
+      state.aMode="uA";
+      status.textContent="Ampèremètre : µA sélectionné.";
       draw(); return;
     }
 
