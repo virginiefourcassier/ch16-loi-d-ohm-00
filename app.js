@@ -9,7 +9,6 @@
   const uTxt   = $("uTxt");
   const rTxt   = $("rTxt");
   const resGrid= $("resGrid");
-  const iIdeal = $("iIdeal");
   const status = $("status");
   const resetBtn   = $("resetBtn");
   const showHotBtn = $("showHotBtn");
@@ -68,7 +67,7 @@
     return {x:offX,y:offY,w:fitW,h:fitH};
   }
 
-  // Zones de base (rectangles, seront réajustées)
+  // Zones de base
   function hotFromMeterBox(m, kind){
     if(kind==="volt"){
       return {
@@ -149,7 +148,7 @@
     state.U = clamp(parseFloat(uRange.value||"0"),0,parseFloat(uRange.max||"12"));
     uTxt.textContent = state.U.toFixed(1);
     rTxt.textContent = String(state.R);
-    iIdeal.textContent = (I_phys(state.U,state.R)*1000).toFixed(1);
+    // plus d'affichage iIdeal
   }
 
   let HOT = null;
@@ -292,9 +291,8 @@
       draw(); return;
     }
 
-    // ⚠ Interversion des actions a_2a / a_ua
+    // interversion conservée : a_2a → 2A, a_ua → µA
     if(inCircle(x,y,HOT.a_2a.cx,HOT.a_2a.cy,HOT.a_2a.r)){
-      // avant : µA ; maintenant : 2A
       state.aMode="2A";
       status.textContent="Ampèremètre : 2A sélectionné.";
       draw(); return;
@@ -305,7 +303,6 @@
       draw(); return;
     }
     if(inCircle(x,y,HOT.a_ua.cx,HOT.a_ua.cy,HOT.a_ua.r)){
-      // avant : 2A ; maintenant : µA
       state.aMode="uA";
       status.textContent="Ampèremètre : µA sélectionné.";
       draw(); return;
